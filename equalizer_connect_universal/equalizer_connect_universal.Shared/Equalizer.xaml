@@ -1,0 +1,173 @@
+﻿<phone:PhoneApplicationPage
+    x:Class="equalizerapo_connect_silverlight.Equalizer"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:phone="clr-namespace:Microsoft.Phone.Controls;assembly=Microsoft.Phone"
+    xmlns:shell="clr-namespace:Microsoft.Phone.Shell;assembly=Microsoft.Phone"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    FontFamily="{StaticResource PhoneFontFamilyNormal}"
+    FontSize="{StaticResource PhoneFontSizeNormal}"
+    Foreground="{StaticResource PhoneForegroundBrush}"
+    SupportedOrientations="Landscape" Orientation="Landscape"
+    mc:Ignorable="d"
+    shell:SystemTray.IsVisible="True">
+
+    <!--LayoutRoot is the root grid where all page content is placed-->
+    <StackPanel x:Name="LayoutRoot" Background="White"
+                MouseEnter="LayoutRoot_MouseEnter"
+                MouseLeave="LayoutRoot_MouseLeave">
+
+        <!-- song title -->
+        <Canvas Height="30">
+            <Canvas.Background>
+                <SolidColorBrush Color="White" Opacity="0.5"/>
+            </Canvas.Background>
+            <TextBlock x:Name="textblock_now_playing" Text="Now Playing: " Foreground="Black" />
+        </Canvas>
+
+        <!-- volume and equalizer -->
+        <Grid Height="381">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" />
+                <RowDefinition Height="auto" />
+            </Grid.RowDefinitions>
+
+            <!-- volume -->
+            <Rectangle Grid.Column="0" Grid.ColumnSpan="2" Grid.Row="0" Height="5" Fill="#FF7B7B7B" Width="688"/>
+            <Slider x:Name="slider_volume" Grid.Column="0" Grid.Row="0" Orientation="Vertical" Width="92" Background="#FF2C2C2C" Foreground="#FF2C2C2C" Maximum="30" Minimum="-30" />
+            <TextBox x:Name="textbox_volume" Grid.Column="0" Grid.Row="1" Width="92" Background="#BFD3D3D3" BorderBrush="#BF000000" SelectionBackground="{StaticResource PhoneAccentBrush}" Margin="0" VerticalAlignment="Top" Text="0" Padding="0,0,0,0" TextChanged="textbox_volume_TextChanged" />
+
+            <!-- equalizer -->
+            <ScrollViewer x:Name="scrollviewer_equalizer" Grid.Column="1" Grid.Row="0" Grid.RowSpan="2" VerticalScrollBarVisibility="Disabled" HorizontalScrollBarVisibility="Visible">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="68" />
+                    </Grid.RowDefinitions>
+                    <Rectangle x:Name="rectangle_selected" Grid.Row="0" Width="92" HorizontalAlignment="Left" Fill="#FFC0C2CA" />
+                    <Grid x:Name="grid_equalizer" Grid.Row="0" />
+                    <Grid x:Name="grid_equalizer_numbers" Grid.Row="1" />
+                </Grid>
+            </ScrollViewer>
+        </Grid>
+
+        <!-- filter controls -->
+        <StackPanel x:Name="stackpanel_filter_controls" Orientation="Horizontal" HorizontalAlignment="Center" Visibility="Collapsed">
+
+            <!-- deselect filter -->
+            <Button x:Name="button_deselect_filter" Width="69" Height="69"
+                    Click="button_deselect_filter_Click">
+                <Button.Background>
+                    <ImageBrush Stretch="Fill" ImageSource="/Assets/close.png"/>
+                </Button.Background>
+            </Button>
+            <Canvas Width="20" />
+
+            <!-- switch filter -->
+            <Button x:Name="button_filter_prev" Width="69" Height="69" BorderBrush="#FF4D4D4D"
+                    Click="button_filter_prev_Click">
+                <Button.Background>
+                    <ImageBrush Stretch="Fill" ImageSource="/Assets/prev.png"/>
+                </Button.Background>
+            </Button>
+            <Canvas Width="20" />
+
+            <!-- modify slowly -->
+            <Button x:Name="button_filter_decrease" Width="69" Height="69" BorderBrush="#FF4D4D4D"
+                    Click="button_filter_decrease_Click">
+                <Button.Background>
+                    <ImageBrush Stretch="Fill" ImageSource="/Assets/prev.png">
+                        <ImageBrush.RelativeTransform>
+                            <CompositeTransform CenterY="0.5" CenterX="0.5" Rotation="270"/>
+                        </ImageBrush.RelativeTransform>
+                    </ImageBrush>
+                </Button.Background>
+            </Button>
+            <Canvas Width="20" />
+
+            <!-- modify slowly -->
+            <Button x:Name="button_filter_increase" Width="69" Height="69" BorderBrush="#FF4D4D4D"
+                    Click="button_filter_increase_Click">
+                <Button.Background>
+                    <ImageBrush Stretch="Fill" ImageSource="/Assets/prev.png">
+                        <ImageBrush.RelativeTransform>
+                            <CompositeTransform CenterY="0.5" CenterX="0.5" Rotation="90"/>
+                        </ImageBrush.RelativeTransform>
+                    </ImageBrush>
+                </Button.Background>
+            </Button>
+            <Canvas Width="20" />
+
+            <!-- switch filter -->
+            <Button x:Name="button_filter_next" Width="69" Height="69" BorderBrush="#FF4D4D4D"
+                    Click="button_filter_next_Click">
+                <Button.Background>
+                    <ImageBrush Stretch="Fill" ImageSource="/Assets/next.png"/>
+                </Button.Background>
+            </Button>
+            <Canvas Width="20" />
+
+            <!-- graphical equalizer -->
+            <Grid x:Name="grid_graphical_representation" Width="260" Height="69"
+                  Tap="grid_graphical_representation_Tap" MouseMove="grid_graphical_representation_MouseMove">
+                <Border x:Name="border_graphical_representation" Width="100" Height="69" BorderBrush="{StaticResource PhoneAccentBrush}" BorderThickness="2" HorizontalAlignment="Left" />
+            </Grid>
+            <Canvas Width="20" />
+        </StackPanel>
+        
+        <!-- standard controls -->
+        <StackPanel x:Name="stackpanel_standard_controls" Orientation="Horizontal">
+
+            <!-- meta equalizer -->
+            <CheckBox x:Name="checkbox_apply_equalizer" Foreground="Black" Margin="0" Height="70" BorderBrush="#FF4D4D4D" IsChecked="True" Width="56"
+                      Checked="checkbox_apply_equalizer_Checked"/>
+            <TextBlock Text="Apply" Foreground="Black" Height="28" FontSize="22.2" VerticalAlignment="Center" />
+
+            <Canvas Width="20" />
+
+            <!-- zero out equalizer values -->
+            <Button x:Name="button_zero_equalizer" Width="130"
+                    Tap="button_zero_equalizer_Tap">
+                <Button.Background>
+                    <ImageBrush ImageSource="/Assets/zero_out.png"/>
+                </Button.Background>
+            </Button>
+
+            <Canvas Width="20" />
+
+            <!-- filter set controls -->
+            <Button x:Name="button_remove_filter" Content="-Filter" Foreground="Black" Margin="0" Height="70" FontSize="22.3"
+                    Tap="button_remove_filter_Tap"/>
+            <Button x:Name="button_add_filter" Content="+Filter" Foreground="Black" Margin="0" Height="70" FontSize="22.3"
+                    Tap="button_add_filter_Tap"/>
+
+            <Canvas Width="20" />
+
+            <!-- playback controls -->
+            <Button x:Name="button_prev" Width="64" Height="62" BorderBrush="#FF4D4D4D"
+                    Tap="button_prev_Tap">
+                <Button.Background>
+                    <ImageBrush Stretch="Fill" ImageSource="/Assets/prev.png"/>
+                </Button.Background>
+            </Button>
+            <Button x:Name="button_play_pause" Width="64" Height="62" BorderBrush="#FF4D4D4D"
+                    Tap="button_play_pause_Tap">
+                <Button.Background>
+                    <ImageBrush Stretch="Fill" ImageSource="/Assets/play.png"/>
+                </Button.Background>
+            </Button>
+            <Button x:Name="button_next" Width="64" Height="62" BorderBrush="#FF4D4D4D"
+                    Tap="button_next_Tap">
+                <Button.Background>
+                    <ImageBrush Stretch="Fill" ImageSource="/Assets/next.png"/>
+                </Button.Background>
+            </Button>
+        </StackPanel>
+    </StackPanel>
+
+</phone:PhoneApplicationPage>
