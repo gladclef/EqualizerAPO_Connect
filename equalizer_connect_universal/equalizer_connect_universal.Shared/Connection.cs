@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 
@@ -30,12 +31,12 @@ namespace equalizerapo_connect_universal
         #region fields
 
         private static Connection Instance;
-        private SocketClient CurrentSocketClient;
-        private DispatcherTimer KeepAliveTimer;
-        private DispatcherTimer ListeningTimer;
-        private DispatcherTimer ShortTimer;
-        private Queue<string> MessageQueue;
-        private long LastSendTime;
+        private SocketClient currentSocketClient;
+        private CancellationToken cancelKeepAlive;
+        private CancellationToken cancelMessageListener;
+        private CancellationToken cancelShortMessageListener;
+        private Queue<string> messageQueue;
+        private long lastSendTime;
 
         #endregion
 
@@ -93,23 +94,23 @@ namespace equalizerapo_connect_universal
         private void Init()
         {
             PrintLine();
-            MessageQueue = new Queue<string>();
+            messageQueue = new Queue<string>();
         }
 
         public string Connect(String hostname, int port)
         {
             PrintLine();
-            if (CurrentSocketClient != null)
+            if (currentSocketClient != null)
             {
-                CurrentSocketClient.Close();
+                currentSocketClient.Close();
             }
-            CurrentSocketClient = new SocketClient();
+            currentSocketClient = new SocketClient();
 
-            string success = CurrentSocketClient.Connect(hostname, port);
+            string success = currentSocketClient.Connect(hostname, port);
             if (success == SocketClient.SUCCESS)
             {
                 // handle incoming messages
-                CurrentSocketClient.HandleIncomingMessages(
+                currentSocketClient.HandleIncomingMessages(
                     new SocketClient.SocketCallbackDelegate(SocketCallback));
 
                 // create the listener
@@ -133,8 +134,8 @@ namespace equalizerapo_connect_universal
             }
             else
             {
-                CurrentSocketClient.Close();
-                CurrentSocketClient = null;
+                currentSocketClient.Close();
+                currentSocketClient = null;
             }
             
             return success;
@@ -143,10 +144,10 @@ namespace equalizerapo_connect_universal
         public string Send(string data, bool important)
         {
             PrintLine();
-            if (CurrentSocketClient == null) { };
+            if (currentSocketClient == null) { };
             PrintLine();
             // check preconditions
-            if (CurrentSocketClient == null)
+            if (currentSocketClient == null)
             {
                 PrintLine();
                 return SocketClient.DISCONNECTED;
@@ -155,15 +156,15 @@ namespace equalizerapo_connect_universal
             PrintLine();
             // check that there is room for a non-important message
             if (!important &&
-                (DateTime.Now.Ticks - LastSendTime < SHORT_TIMOUT * 1000 * 10000 * 2))
+                (DateTime.Now.Ticks - lastSendTime < SHORT_TIMOUT * 1000 * 10000 * 2))
             {
                 return MESSAGE_BLOCKED;
             }
 
             PrintLine();
             // try to send, get success status
-            string success = CurrentSocketClient.Send('%' + data);
-            LastSendTime = DateTime.Now.Ticks;
+            string success = currentSocketClient.Send('%' + data);
+            lastSendTime = DateTime.Now.Ticks;
 
             PrintLine();
             // message sending was NOT successful?
@@ -173,7 +174,7 @@ namespace equalizerapo_connect_universal
                 {
                     PrintLine();
                     // try reconnecting
-                    string reconnectSuccess = CurrentSocketClient.Reconnect();
+                    string reconnectSuccess = currentSocketClient.Reconnect();
 
                     // reconnecting failed, disconnect
                     if (reconnectSuccess != SocketClient.SUCCESS)
@@ -193,24 +194,24 @@ namespace equalizerapo_connect_universal
         public string Receive()
         {
             PrintLine();
-            if (CurrentSocketClient == null)
+            if (currentSocketClient == null)
             {
                 throw new InvalidOperationException("no connection established to SocketClient");
             }
-            return CurrentSocketClient.Receive();
+            return currentSocketClient.Receive();
         }
 
         public string Receive(bool waitForTimeout)
         {
             PrintLine();
             // check preconditions
-            if (CurrentSocketClient == null)
+            if (currentSocketClient == null)
             {
                 throw new InvalidOperationException("no connection established to SocketClient");
             }
 
             // try to receive
-            string success = CurrentSocketClient.Receive(waitForTimeout);
+            string success = currentSocketClient.Receive(waitForTimeout);
 
             // message receiving was NOT successful?
             if (success != SocketClient.SUCCESS)
@@ -256,13 +257,13 @@ namespace equalizerapo_connect_universal
         public void GetMessage(object sender, EventArgs e)
         {
             PrintLine();
-            if (MessageQueue.Count == 0)
+            if (messageQueue.Count == 0)
             {
                 // no more messages, stop listening so quickly
                 ShortTimer.Stop();
                 return;
             }
-            string message = MessageQueue.Dequeue();
+            string message = messageQueue.Dequeue();
 
             if (message == SocketClient.KEEP_ALIVE)
             {
@@ -327,10 +328,10 @@ namespace equalizerapo_connect_universal
                 KeepAliveTimer.Stop();
                 KeepAliveTimer = null;
             }
-            if (CurrentSocketClient != null)
+            if (currentSocketClient != null)
             {
-                CurrentSocketClient.Close();
-                CurrentSocketClient = null;
+                currentSocketClient.Close();
+                currentSocketClient = null;
             }
         }
 
@@ -338,11 +339,11 @@ namespace equalizerapo_connect_universal
         {
             PrintLine();
             // get ready for the next message
-            if (CurrentSocketClient != null)
+            if (currentSocketClient != null)
             {
                 try
                 {
-                    CurrentSocketClient.HandleIncomingMessages(
+                    currentSocketClient.HandleIncomingMessages(
                         new SocketClient.SocketCallbackDelegate(SocketCallback));
                 }
                 catch (ObjectDisposedException)
@@ -378,7 +379,7 @@ namespace equalizerapo_connect_universal
                 {
                     PrintLine();
                     // try reconnecting
-                    string reconnectSuccess = CurrentSocketClient.Reconnect();
+                    string reconnectSuccess = currentSocketClient.Reconnect();
 
                     // reconnecting failed, disconnect
                     if (reconnectSuccess != SocketClient.SUCCESS)
@@ -393,7 +394,7 @@ namespace equalizerapo_connect_universal
                 }
                 else
                 {
-                    MessageQueue.Enqueue(m);
+                    messageQueue.Enqueue(m);
                 }
             }
         }

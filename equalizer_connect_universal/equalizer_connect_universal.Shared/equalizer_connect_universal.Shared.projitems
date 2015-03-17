@@ -16,12 +16,6 @@
       <DependentUpon>App.xaml</DependentUpon>
     </Compile>
     <Compile Include="$(MSBuildThisFileDirectory)Connection.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)ConnectToServer.xaml.cs">
-      <DependentUpon>ConnectToServer.xaml</DependentUpon>
-    </Compile>
-    <Compile Include="$(MSBuildThisFileDirectory)Equalizer.xaml.cs">
-      <DependentUpon>Equalizer.xaml</DependentUpon>
-    </Compile>
     <Compile Include="$(MSBuildThisFileDirectory)Filter.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)FilterManager.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)MessageParser.cs" />
@@ -29,15 +23,5 @@
     <Compile Include="$(MSBuildThisFileDirectory)SavedData.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)SocketClient.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Track.cs" />
-  </ItemGroup>
-  <ItemGroup>
-    <Page Include="$(MSBuildThisFileDirectory)ConnectToServer.xaml">
-      <SubType>Designer</SubType>
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
-    <Page Include="$(MSBuildThisFileDirectory)Equalizer.xaml">
-      <SubType>Designer</SubType>
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
   </ItemGroup>
 </Project>
