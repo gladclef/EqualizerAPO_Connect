@@ -5,9 +5,8 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Threading;
 
-namespace equalizerapo_connect_silverlight
+namespace equalizerapo_connect_universal
 {
     public class Connection
     {
@@ -36,7 +35,6 @@ namespace equalizerapo_connect_silverlight
         private DispatcherTimer ListeningTimer;
         private DispatcherTimer ShortTimer;
         private Queue<string> MessageQueue;
-        private System.Threading.Thread thread;
         private long LastSendTime;
 
         #endregion
@@ -96,7 +94,6 @@ namespace equalizerapo_connect_silverlight
         {
             PrintLine();
             MessageQueue = new Queue<string>();
-            thread = System.Threading.Thread.CurrentThread;
         }
 
         public string Connect(String hostname, int port)

@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace equalizerapo_connect_silverlight
+namespace equalizerapo_connect_universal
 {
     public class Track
     {

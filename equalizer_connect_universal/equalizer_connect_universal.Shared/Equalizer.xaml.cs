@@ -13,7 +13,7 @@ using Microsoft.Phone.Controls;
 using Microsoft.Phone.Shell;
 using System.Windows.Media;
 
-namespace equalizerapo_connect_silverlight
+namespace equalizerapo_connect_universal
 {
     public partial class Equalizer : PhoneApplicationPage
     {

@@ -9,7 +9,7 @@ using System.Threading;
 using Microsoft.Phone.Controls;
 using Microsoft.Phone.Shell;
 
-namespace equalizerapo_connect_silverlight
+namespace equalizerapo_connect_universal
 {
     public partial class ConnectToServer : PhoneApplicationPage
     {

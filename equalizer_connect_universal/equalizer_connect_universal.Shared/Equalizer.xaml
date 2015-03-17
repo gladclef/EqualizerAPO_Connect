@@ -1,5 +1,5 @@
 ﻿<phone:PhoneApplicationPage
-    x:Class="equalizerapo_connect_silverlight.Equalizer"
+    x:Class="equalizerapo_connect_universal.Equalizer"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:phone="clr-namespace:Microsoft.Phone.Controls;assembly=Microsoft.Phone"
