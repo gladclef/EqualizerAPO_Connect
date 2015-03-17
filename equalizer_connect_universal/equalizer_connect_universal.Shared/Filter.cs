@@ -76,8 +76,8 @@ namespace equalizer_connect_universal
                     Math.Max(
                         Math.Min(
                             value,
-                            FilterManager.GAIN_MAX),
-                        -FilterManager.GAIN_MAX);
+                            EqualizerManager.GAIN_MAX),
+                        -EqualizerManager.GAIN_MAX);
                 if (newVal != gain &&
                     !IsLocked)
                 {
