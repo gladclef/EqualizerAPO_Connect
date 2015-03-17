@@ -25,6 +25,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Filter.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)FilterManager.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)MessageParser.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)PeriodicTaskFactory.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)SavedData.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)SocketClient.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Track.cs" />
