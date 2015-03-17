@@ -4,18 +4,20 @@ using System.Linq;
 using System.Net;
 using System.Threading;
 using System.Windows;
-using System.Windows.Controls;
 using System.Windows.Input;
-using System.Windows.Shapes;
-using System.Windows.Navigation;
-using System.Windows.Threading;
-using Microsoft.Phone.Controls;
-using Microsoft.Phone.Shell;
-using System.Windows.Media;
+using Windows.Foundation;
+using Windows.UI;
+using Windows.UI.Xaml;
+using Windows.UI.Xaml.Controls;
+using Windows.UI.Xaml.Controls.Primitives;
+using Windows.UI.Xaml.Input;
+using Windows.UI.Xaml.Media;
+using Windows.UI.Xaml.Navigation;
+using Windows.UI.Xaml.Shapes;
 
 namespace equalizerapo_connect_universal
 {
-    public partial class Equalizer : PhoneApplicationPage
+    public partial class Equalizer
     {
         #region constants
 
@@ -173,8 +175,8 @@ namespace equalizerapo_connect_universal
                     filterManager.Filters.ElementAt(selectedSliderIndex).Value.IsLocked = false;
 
                     // visibly show that the filter is selected
-                    stackpanel_standard_controls.Visibility = System.Windows.Visibility.Collapsed;
-                    stackpanel_filter_controls.Visibility = System.Windows.Visibility.Visible;
+                    stackpanel_standard_controls.Visibility = Visibility.Collapsed;
+                    stackpanel_filter_controls.Visibility = Visibility.Visible;
                     rectangle_selected.Margin = new Thickness(
                         (oldIndex == -1)
                             ? filterSliders.ElementAt(selectedSliderIndex).Margin.Left
@@ -182,7 +184,7 @@ namespace equalizerapo_connect_universal
                         0, 0, 0);
                     scrollValues["rectLeftOld"] = rectangle_selected.Margin.Left;
                     scrollValues["rectLeftNew"] = filterSliders.ElementAt(selectedSliderIndex).Margin.Left;
-                    rectangle_selected.Visibility = System.Windows.Visibility.Visible;
+                    rectangle_selected.Visibility = Visibility.Visible;
 
                     // smoothly scroll the selection rectangle and scrollviewer
                     ScrollToFilter(selectedSliderIndex);
@@ -191,9 +193,9 @@ namespace equalizerapo_connect_universal
                 {
                     // all sliders deselected
                     selectedSliderIndex = value;
-                    stackpanel_standard_controls.Visibility = System.Windows.Visibility.Visible;
-                    stackpanel_filter_controls.Visibility = System.Windows.Visibility.Collapsed;
-                    rectangle_selected.Visibility = System.Windows.Visibility.Collapsed;
+                    stackpanel_standard_controls.Visibility = Visibility.Visible;
+                    stackpanel_filter_controls.Visibility = Visibility.Collapsed;
+                    rectangle_selected.Visibility = Visibility.Collapsed;
                     if (checkScrollTimer != null)
                     {
                         checkScrollTimer.Stop();
@@ -203,6 +205,10 @@ namespace equalizerapo_connect_universal
                 UpdateGraphicalRepresentation();
             }
         }
+        /// <summary>
+        /// Used in place of Thread.Sleep()
+        /// </summary>
+        private static ManualResetEvent neverTrigger = new ManualResetEvent(false);
 
         #endregion
 
@@ -222,7 +228,7 @@ namespace equalizerapo_connect_universal
             // set min/max on volume and attach event handlers
             slider_volume.Minimum = -FilterManager.MAX_PREAMP_GAIN;
             slider_volume.Maximum = FilterManager.MAX_PREAMP_GAIN;
-            slider_volume.ValueChanged += new RoutedPropertyChangedEventHandler<double>(slider_volume_ValueChanged);
+            slider_volume.ValueChanged += new RangeBaseValueChangedEventHandler(slider_volume_ValueChanged);
             textbox_volume.TextChanged += new TextChangedEventHandler(textbox_volume_TextChanged);
             textbox_volume.KeyUp += new KeyEventHandler(textbox_volume_KeyUp);
 
@@ -241,19 +247,19 @@ namespace equalizerapo_connect_universal
             // check for updates from the viewscroller
             checkScrollTimer = new DispatcherTimer();
             checkScrollTimer.Interval = new TimeSpan(0, 0, 0, 0, 100);
-            checkScrollTimer.Tick += new EventHandler(CheckScrolled);
+            checkScrollTimer.Tick += new EventHandler<object>(CheckScrolled);
 
             PrintLine();
             // smooth scrolling when the selected filter is changed
             updateScrollTimer = new DispatcherTimer();
             updateScrollTimer.Interval = new TimeSpan(0, 0, 0, 0, 30);
-            updateScrollTimer.Tick += new EventHandler(UpdateScrollPosition);
+            updateScrollTimer.Tick += new EventHandler<object>(UpdateScrollPosition);
 
             PrintLine();
             // try and reduce the number of times the textbox has to change
             filterChangedTimer = new DispatcherTimer();
             filterChangedTimer.Interval = new TimeSpan(0, 0, 0, 0, 30);
-            filterChangedTimer.Tick += new EventHandler(UpdateFilterTextBoxes);
+            filterChangedTimer.Tick += new EventHandler<object>(UpdateFilterTextBoxes);
 
             PrintLine();
             // get updates from the filters
@@ -287,10 +293,7 @@ namespace equalizerapo_connect_universal
             }
             catch (UnauthorizedAccessException)
             {
-                Deployment.Current.Dispatcher.BeginInvoke(() =>
-                {
-                    Close();
-                });
+                Close();
             }
         }
 
@@ -394,66 +397,57 @@ namespace equalizerapo_connect_universal
         private void MessageReceived(object sender, EventArgs args)
         {
             PrintLine();
-            Deployment.Current.Dispatcher.BeginInvoke(() =>
+            if (IsTouchActive)
             {
-                if (IsTouchActive)
-                {
-                    return;
-                }
-                Connection.MessageReceivedEventArgs mrev =
-                    (Connection.MessageReceivedEventArgs)args;
-                messageParser.ParseMessage(mrev.message);
-            });
+                return;
+            }
+            Connection.MessageReceivedEventArgs mrev =
+                (Connection.MessageReceivedEventArgs)args;
+            messageParser.ParseMessage(mrev.message);
         }
 
         private void Disconnected(object sender, EventArgs args)
         {
             PrintLine();
-            Deployment.Current.Dispatcher.BeginInvoke(() =>
+            if (Frame.CanGoBack)
             {
-                PrintLine();
-                NavigationService.GoBack();
-            });
+                Frame.GoBack();
+            }
+            else
+            {
+                Frame.Navigate(typeof(ConnectToServer));
+            }
         }
 
         private void ConnectionSideDisconnect(object sender, EventArgs args)
         {
             PrintLine();
-            Deployment.Current.Dispatcher.BeginInvoke(() =>
-            {
-                connection.SideDisconnect();
-            });
+            connection.SideDisconnect();
         }
 
         private void UpdateTrackname(object sender, EventArgs args)
         {
             PrintLine();
-            Deployment.Current.Dispatcher.BeginInvoke(() =>
-            {
-                Track.TrackChangedEventArgs targs =
-                    args as Track.TrackChangedEventArgs;
-                // TODO: remove
-                // System.Diagnostics.Debug.WriteLine("UpdateTrackname [" + targs.property + ":" + targs.newValue + "], " + currentTrack.Artist + ", " + currentTrack.Title);
-                textblock_now_playing.Text =
-                    "Now Playing: " +
-                    currentTrack.Artist + " - " +
-                    currentTrack.Title;
-            });
+            Track.TrackChangedEventArgs targs =
+                args as Track.TrackChangedEventArgs;
+            // TODO: remove
+            // System.Diagnostics.Debug.WriteLine("UpdateTrackname [" + targs.property + ":" + targs.newValue + "], " + currentTrack.Artist + ", " + currentTrack.Title);
+            textblock_now_playing.Text =
+                "Now Playing: " +
+                currentTrack.Artist + " - " +
+                currentTrack.Title;
         }
 
         private void UpdateFilters(object sender, EventArgs args)
         {
             PrintLine();
-            Deployment.Current.Dispatcher.BeginInvoke(() =>
+            int[] allIndices = new int[filterSliders.Count];
+            for (int i = 0; i < allIndices.Length; i++)
             {
-                int[] allIndices = new int[filterSliders.Count];
-                for (int i = 0; i < allIndices.Length; i++)
-                {
-                    allIndices[i] = i;
-                }
-                UpdateFilter(sender, new FilterManager.FilterEventArgs(
-                    allIndices));
-            });
+                allIndices[i] = i;
+            }
+            UpdateFilter(sender, new FilterManager.FilterEventArgs(
+                allIndices));
         }
 
         private void RemoveSliders()
@@ -482,6 +476,7 @@ namespace equalizerapo_connect_universal
             while (filterSliders.Count < filters.Count)
             {
                 // create slider
+                Thickness margin = slider_volume.Margin;
                 Slider slider = new Slider();
                 slider.Width = slider_volume.Width;
                 slider.Height = grid_equalizer.Height;
@@ -489,14 +484,16 @@ namespace equalizerapo_connect_universal
                 slider.Maximum = FilterManager.GAIN_MAX;
                 slider.Background = new SolidColorBrush(Color.FromArgb(50, 0, 0, 0));
                 slider.Foreground = GetBrush("PhoneAccentBrush");
-                slider.Orientation = System.Windows.Controls.Orientation.Vertical;
-                slider.Margin = new Thickness(slider.Width * filterSliders.Count, 0, 0, 0);
-                slider.HorizontalAlignment = System.Windows.HorizontalAlignment.Left;
+                slider.Orientation = slider_volume.Orientation;
+                slider.Margin = new Thickness(
+                    (slider.Width + margin.Left) * filterSliders.Count,
+                    margin.Top, margin.Right, margin.Bottom);
+                slider.HorizontalAlignment = HorizontalAlignment.Left;
                 slider.ValueChanged +=
-                    new RoutedPropertyChangedEventHandler<double>(
+                    new RangeBaseValueChangedEventHandler(
                         slider_filter_ValueChanged);
-                slider.Tap +=
-                    new EventHandler<System.Windows.Input.GestureEventArgs>(
+                slider.Tapped +=
+                    new TappedEventHandler(
                         slider_filter_Tapped);
                 grid_equalizer.Children.Add(slider);
                 filterSliders.AddLast(slider);
@@ -515,12 +512,12 @@ namespace equalizerapo_connect_universal
                 textbox.BorderBrush = textbox_volume.BorderBrush;
                 textbox.BorderThickness = textbox_volume.BorderThickness;
                 textbox.Margin = new Thickness(textbox.Width * filterTextboxes.Count, 0, 0, 0);
-                textbox.HorizontalAlignment = System.Windows.HorizontalAlignment.Left;
+                textbox.HorizontalAlignment = HorizontalAlignment.Left;
                 textbox.TextChanged += 
                     new TextChangedEventHandler(
                         textbox_filter_TextChanged);
                 textbox.KeyUp +=
-                    new System.Windows.Input.KeyEventHandler(
+                    new KeyEventHandler(
                         textbox_filter_KeyUp);
                 textbox.InputScope = numScope;
                 grid_equalizer_numbers.Children.Add(textbox);
@@ -531,43 +528,40 @@ namespace equalizerapo_connect_universal
         private void UpdateFilter(object sender, EventArgs args)
         {
             PrintLine();
-            Deployment.Current.Dispatcher.BeginInvoke(() =>
+            SortedDictionary<double, Filter> filters = filterManager.Filters;
+
+            // update the number of sliders/textboxes
+            RemoveSliders();
+            AddSliders();
+            UpdateGraphicalRepresentation();
+
+            // get the arguments
+            FilterManager.FilterEventArgs filterArgs =
+                args as FilterManager.FilterEventArgs;
+
+            int index = -1;
+            foreach (KeyValuePair<double, Filter> pair in filters)
             {
-                SortedDictionary<double, Filter> filters = filterManager.Filters;
-
-                // update the number of sliders/textboxes
-                RemoveSliders();
-                AddSliders();
-                UpdateGraphicalRepresentation();
-
-                // get the arguments
-                FilterManager.FilterEventArgs filterArgs =
-                    args as FilterManager.FilterEventArgs;
-
-                int index = -1;
-                foreach (KeyValuePair<double, Filter> pair in filters)
+                // check that this filter needs to be updated
+                index++;
+                if (!filterArgs.filterIndices.Contains(index))
                 {
-                    // check that this filter needs to be updated
-                    index++;
-                    if (!filterArgs.filterIndices.Contains(index))
-                    {
-                        continue;
-                    }
-                    Filter filter = pair.Value;
-                    double gain = filter.Gain;
-
-                    // update the slider
-                    Slider slider = filterSliders.ElementAt(index);
-                    if (Math.Abs(slider.Value - gain) >= GAIN_ACCURACY)
-                    {
-                        slider.Value = gain;
-                    }
-
-                    // set timer to update the textbox
-                    filterChangedTimer.Stop();
-                    filterChangedTimer.Start();
+                    continue;
                 }
-            });
+                Filter filter = pair.Value;
+                double gain = filter.Gain;
+
+                // update the slider
+                Slider slider = filterSliders.ElementAt(index);
+                if (Math.Abs(slider.Value - gain) >= GAIN_ACCURACY)
+                {
+                    slider.Value = gain;
+                }
+
+                // set timer to update the textbox
+                filterChangedTimer.Stop();
+                filterChangedTimer.Start();
+            }
         }
 
         private void UpdateVolumeTextbox()
@@ -589,80 +583,78 @@ namespace equalizerapo_connect_universal
         /// </summary>
         /// <param name="sender">Object that called this method.</param>
         /// <param name="args">Event arguments for this call.</param>
-        private void UpdateFilterTextBoxes(object sender, EventArgs args)
+        private void UpdateFilterTextBoxes(object sender, object args)
         {
             PrintLine();
             filterChangedTimer.Stop();
 
-            Deployment.Current.Dispatcher.BeginInvoke(() =>
+            SortedDictionary<double, Filter> filters = filterManager.Filters;
+            TextBox[] textboxes = filterTextboxes.ToArray();
+
+            int index = -1;
+            foreach (KeyValuePair<double, Filter> pair in filters)
             {
-                SortedDictionary<double, Filter> filters = filterManager.Filters;
-                TextBox[] textboxes = filterTextboxes.ToArray();
+                // get the filter, its index, its gain, and the textBox
+                index++;
+                Filter filter = pair.Value;
+                TextBox textBox = textboxes[index];
+                double gain = filter.Gain;
 
-                int index = -1;
-                foreach (KeyValuePair<double, Filter> pair in filters)
+                // update the textbox
+                string sgain = gain.ToString();
+                int tenthsPosition = sgain.Contains('.') ?
+                    sgain.IndexOf('.') + 2 : sgain.Length;
+                sgain = sgain.Substring(0, tenthsPosition);
+                if (sgain != textBox.Text)
                 {
-                    // get the filter, its index, its gain, and the textBox
-                    index++;
-                    Filter filter = pair.Value;
-                    TextBox textBox = textboxes[index];
-                    double gain = filter.Gain;
-
-                    // update the textbox
-                    string sgain = gain.ToString();
-                    int tenthsPosition = sgain.Contains('.') ?
-                        sgain.IndexOf('.') + 2 : sgain.Length;
-                    sgain = sgain.Substring(0, tenthsPosition);
-                    if (sgain != textBox.Text)
-                    {
-                        textBox.Text = sgain;
-                    }
+                    textBox.Text = sgain;
                 }
-            });
+            }
         }
 
         private void UpdateVolume(object sender, EventArgs args)
         {
             PrintLine();
-            Deployment.Current.Dispatcher.BeginInvoke(() =>
+            Slider slider = slider_volume;
+            double gain = filterManager.PreAmpGain;
+            if (gain != slider.Value)
             {
-                Slider slider = slider_volume;
-                double gain = filterManager.PreAmpGain;
-                if (gain != slider.Value)
-                {
-                    slider.Value = gain;
-                }
-            });
+                slider.Value = gain;
+            }
         }
 
         private void UpdatePlayback()
         {
             PrintLine();
-            Deployment.Current.Dispatcher.BeginInvoke(() =>
+            if (isPlaying)
             {
-                ImageBrush background = new ImageBrush();
-                string bgPath = isPlaying ? "/Assets/pause.png" : "/Assets/play.png";
-                Uri uri = new Uri(bgPath, UriKind.Relative);
-                background.ImageSource = (ImageSource)
-                    new ImageSourceConverter().ConvertFrom(uri);
-                button_play_pause.Background = background;
-            });
+                if (button_play.Visibility == Visibility.Visible)
+                {
+                    button_play.Visibility = Visibility.Collapsed;
+                    button_pause.Visibility = Visibility.Visible;
+                }
+            }
+            else
+            {
+                if (button_play.Visibility == Visibility.Collapsed)
+                {
+                    button_play.Visibility = Visibility.Visible;
+                    button_pause.Visibility = Visibility.Collapsed;
+                }
+            }
         }
 
         private void UpdateIsEqualizerApplied(object sender, EventArgs args)
         {
             PrintLine();
-            Deployment.Current.Dispatcher.BeginInvoke(() =>
-            {
-                checkbox_apply_equalizer.IsChecked = 
-                    filterManager.IsEqualizerApplied;
-            });
+            checkbox_apply_equalizer.IsChecked = 
+                filterManager.IsEqualizerApplied;
         }
 
         private static SolidColorBrush GetBrush(string brushName)
         {
             PrintLine();
-            return new SolidColorBrush((App.Current.Resources[brushName] as SolidColorBrush).Color);
+            return new SolidColorBrush((Application.Current.Resources[brushName] as SolidColorBrush).Color);
         }
 
         private int GetSliderIndex(Slider slider)
@@ -684,7 +676,7 @@ namespace equalizerapo_connect_universal
             return index;
         }
 
-        private void UpdateScrollPosition(object sender, EventArgs args)
+        private void UpdateScrollPosition(object sender, object args)
         {
             PrintLine();
             // check that the animation isn't over
@@ -724,8 +716,7 @@ namespace equalizerapo_connect_universal
         private double GetDoubleFromText(string text)
         {
             System.Text.RegularExpressions.Regex numMatch =
-                new System.Text.RegularExpressions.Regex("(-)?\\d+(\\.\\d+)?",
-                    System.Text.RegularExpressions.RegexOptions.Compiled);
+                new System.Text.RegularExpressions.Regex("(-)?\\d+(\\.\\d+)?");
             System.Text.RegularExpressions.Match match =
                 numMatch.Match(text);
             if (!match.Success)
@@ -825,9 +816,9 @@ namespace equalizerapo_connect_universal
                 {
                     rect = new Rectangle();
                     rect.HorizontalAlignment =
-                        System.Windows.HorizontalAlignment.Left;
+                        HorizontalAlignment.Left;
                     rect.VerticalAlignment =
-                        System.Windows.VerticalAlignment.Bottom;
+                        VerticalAlignment.Bottom;
                     rect.Margin = new Thickness(0, 0, 0, 2);
                     rectGraphicRep.AddLast(rect);
                     grid_graphical_representation.Children.Add(rect);
@@ -861,21 +852,18 @@ namespace equalizerapo_connect_universal
             }
         }
 
-        private void CheckScrolled(object sender, EventArgs args)
+        private void CheckScrolled(object sender, object args)
         {
             PrintLine();
-            Deployment.Current.Dispatcher.BeginInvoke(() =>
+            if (scrollviewer_equalizer.Visibility != Visibility.Visible)
             {
-                if (scrollviewer_equalizer.Visibility != System.Windows.Visibility.Visible)
-                {
-                    return;
-                }
-                if (cachedScrollOffset != scrollviewer_equalizer.HorizontalOffset)
-                {
-                    UpdateGraphicalRepresentationBorder();
-                    cachedScrollOffset = scrollviewer_equalizer.HorizontalOffset;
-                }
-            });
+                return;
+            }
+            if (cachedScrollOffset != scrollviewer_equalizer.HorizontalOffset)
+            {
+                UpdateGraphicalRepresentationBorder();
+                cachedScrollOffset = scrollviewer_equalizer.HorizontalOffset;
+            }
         }
 
         private void grid_graphical_representation_MoveScrollViewer(Point p)
@@ -963,354 +951,303 @@ namespace equalizerapo_connect_universal
         private void button_filter_prev_Click(object sender, RoutedEventArgs e)
         {
             PrintLine();
-            Deployment.Current.Dispatcher.BeginInvoke(() =>
-            {
-                SelectedSliderIndex = Math.Max(
-                    SelectedSliderIndex - 1,
-                    0);
-            });
+            SelectedSliderIndex = Math.Max(
+                SelectedSliderIndex - 1,
+                0);
         }
 
         private void button_filter_decrease_Click(object sender, RoutedEventArgs e)
         {
             PrintLine();
-            Deployment.Current.Dispatcher.BeginInvoke(() =>
-            {
-                Filter filter = filterManager.Filters.ElementAt(SelectedSliderIndex).Value;
-                filter.Gain -= 0.1;
-                connection.Send(
-                    messageParser.CreateMessage(MessageParser.MESSAGE_TYPE.FILTERS_GAIN),
-                    true);
-            });
+            Filter filter = filterManager.Filters.ElementAt(SelectedSliderIndex).Value;
+            filter.Gain -= 0.1;
+            connection.Send(
+                messageParser.CreateMessage(MessageParser.MESSAGE_TYPE.FILTERS_GAIN),
+                true);
         }
 
         private void button_filter_increase_Click(object sender, RoutedEventArgs e)
         {
             PrintLine();
-            Deployment.Current.Dispatcher.BeginInvoke(() =>
-            {
-                Filter filter = filterManager.Filters.ElementAt(SelectedSliderIndex).Value;
-                filter.Gain += 0.1;
-                connection.Send(
-                    messageParser.CreateMessage(MessageParser.MESSAGE_TYPE.FILTERS_GAIN),
-                    true);
-            });
+            Filter filter = filterManager.Filters.ElementAt(SelectedSliderIndex).Value;
+            filter.Gain += 0.1;
+            connection.Send(
+                messageParser.CreateMessage(MessageParser.MESSAGE_TYPE.FILTERS_GAIN),
+                true);
         }
 
         private void button_filter_next_Click(object sender, RoutedEventArgs e)
         {
             PrintLine();
-            Deployment.Current.Dispatcher.BeginInvoke(() =>
-            {
-                SelectedSliderIndex = Math.Min(
-                    SelectedSliderIndex + 1,
-                    filterSliders.Count - 1);
-            });
+            SelectedSliderIndex = Math.Min(
+                SelectedSliderIndex + 1,
+                filterSliders.Count - 1);
         }
 
         private void button_deselect_filter_Click(object sender, RoutedEventArgs e)
         {
             PrintLine();
-            Deployment.Current.Dispatcher.BeginInvoke(() =>
-            {
-                SelectedSliderIndex = -1;
-            });
+            SelectedSliderIndex = -1;
         }
 
-        private void slider_filter_Tapped(object sender, System.Windows.Input.GestureEventArgs args)
+        private void slider_filter_Tapped(object sender, TappedRoutedEventArgs args)
         {
             PrintLine();
-            Deployment.Current.Dispatcher.BeginInvoke(() =>
+            // get the index of the slider
+            Slider slider = sender as Slider;
+            int index = GetSliderIndex(slider);
+            if (index == -1)
             {
-                // get the index of the slider
-                Slider slider = sender as Slider;
-                int index = GetSliderIndex(slider);
-                if (index == -1)
-                {
-                    System.Diagnostics.Debug.WriteLine("**error: can't find the Slider");
-                    return;
-                }
+                System.Diagnostics.Debug.WriteLine("**error: can't find the Slider");
+                return;
+            }
 
-                // select the slider
-                Thread.Sleep(30);
-                SelectedSliderIndex = index;
-            });
+            // select the slider
+            neverTrigger.WaitOne(30);
+            SelectedSliderIndex = index;
         }
 
-        private void slider_volume_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> args)
+        private void slider_volume_ValueChanged(object sender, RangeBaseValueChangedEventArgs args)
         {
             PrintLine();
-            Deployment.Current.Dispatcher.BeginInvoke(() =>
+            // check that the value is new
+            if (Math.Abs(slider_volume.Value - filterManager.PreAmpGain) < GAIN_ACCURACY)
             {
-                // check that the value is new
-                if (Math.Abs(slider_volume.Value - filterManager.PreAmpGain) < GAIN_ACCURACY)
-                {
-                    return;
-                }
+                return;
+            }
 
-                // change volume gain
-                filterManager.PreAmpGain = slider_volume.Value;
+            // change volume gain
+            filterManager.PreAmpGain = slider_volume.Value;
 
-                // update the textbox
-                UpdateVolumeTextbox();
+            // update the textbox
+            UpdateVolumeTextbox();
 
-                // send a message to the server
-                connection.Send(
-                    messageParser.CreateMessage(MessageParser.MESSAGE_TYPE.VOLUME_CHANGED),
-                    false);
-            });
+            // send a message to the server
+            connection.Send(
+                messageParser.CreateMessage(MessageParser.MESSAGE_TYPE.VOLUME_CHANGED),
+                false);
         }
 
-        private void textbox_volume_TextChanged(object sender, EventArgs args)
+        private void textbox_volume_TextChanged(object sender, TextChangedEventArgs args)
         {
             PrintLine();
-            Deployment.Current.Dispatcher.BeginInvoke(() =>
+            if (textbox_volume.FocusState != FocusState.Unfocused)
             {
-                if (textbox_volume == System.Windows.Input.FocusManager.GetFocusedElement())
-                {
-                    return;
-                }
+                return;
+            }
 
+            slider_volume.Value = GetDoubleFromText(textbox_volume.Text);
+            connection.Send(
+                messageParser.CreateMessage(MessageParser.MESSAGE_TYPE.VOLUME_CHANGED),
+                true);
+        }
+
+        private void textbox_volume_KeyUp(object sender, KeyRoutedEventArgs args)
+        {
+            PrintLine();
+            // check pre-conditions
+            if (args.Key == Windows.System.VirtualKey.Enter)
+            {
                 slider_volume.Value = GetDoubleFromText(textbox_volume.Text);
                 connection.Send(
                     messageParser.CreateMessage(MessageParser.MESSAGE_TYPE.VOLUME_CHANGED),
                     true);
-            });
+            }
         }
 
-        private void textbox_volume_KeyUp(object sender, System.Windows.Input.KeyEventArgs args)
+        private void slider_filter_ValueChanged(object sender, RangeBaseValueChangedEventArgs args)
         {
             PrintLine();
-            Deployment.Current.Dispatcher.BeginInvoke(() =>
+            // check pre-conditions
+            if (!(sender is Slider))
             {
-                // check pre-conditions
-                if (args.Key == System.Windows.Input.Key.Enter)
-                {
-                    slider_volume.Value = GetDoubleFromText(textbox_volume.Text);
-                    connection.Send(
-                        messageParser.CreateMessage(MessageParser.MESSAGE_TYPE.VOLUME_CHANGED),
-                        true);
-                }
-            });
-        }
+                System.Diagnostics.Debug.WriteLine("**error: sender is not Slider");
+                return;
+            }
 
-        private void slider_filter_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> args)
-        {
-            PrintLine();
-            Deployment.Current.Dispatcher.BeginInvoke(() =>
+            // get the index of the slider
+            Slider slider = sender as Slider;
+            int index = GetSliderIndex(slider);
+            if (index == -1)
             {
-                // check pre-conditions
-                if (!(sender is Slider))
-                {
-                    System.Diagnostics.Debug.WriteLine("**error: sender is not Slider");
-                    return;
-                }
+                System.Diagnostics.Debug.WriteLine("**error: can't find the Slider");
+                return;
+            }
 
-                // get the index of the slider
-                Slider slider = sender as Slider;
-                int index = GetSliderIndex(slider);
-                if (index == -1)
-                {
-                    System.Diagnostics.Debug.WriteLine("**error: can't find the Slider");
-                    return;
-                }
+            // check that the value is new
+            Filter filter = filterManager.Filters.ElementAt(index).Value;
+            if (Math.Abs(slider.Value - filter.Gain) < GAIN_ACCURACY)
+            {
+                return;
+            }
 
-                // check that the value is new
-                Filter filter = filterManager.Filters.ElementAt(index).Value;
-                if (Math.Abs(slider.Value - filter.Gain) < GAIN_ACCURACY)
-                {
-                    return;
-                }
-
-                // is the filter locked? ie, can't change
-                if (filter.IsLocked)
-                {
-                    // change value back
-                    slider.Value = filter.Gain;
-                }
-                else
-                {
-                    // change filter gain
-                    filter.Gain = slider.Value;
-                    connection.Send(
-                        messageParser.CreateMessage(MessageParser.MESSAGE_TYPE.FILTERS_GAIN),
-                        false);
-                }
-            });
+            // is the filter locked? ie, can't change
+            if (filter.IsLocked)
+            {
+                // change value back
+                slider.Value = filter.Gain;
+            }
+            else
+            {
+                // change filter gain
+                filter.Gain = slider.Value;
+                connection.Send(
+                    messageParser.CreateMessage(MessageParser.MESSAGE_TYPE.FILTERS_GAIN),
+                    false);
+            }
         }
 
         private void textbox_filter_TextChanged(object sender, TextChangedEventArgs args)
         {
             PrintLine();
-            Deployment.Current.Dispatcher.BeginInvoke(() =>
+            // check pre-conditions
+            if (!(sender is TextBox))
             {
-                // check pre-conditions
-                if (!(sender is TextBox))
-                {
-                    System.Diagnostics.Debug.WriteLine("**error: sender is not TextBox");
-                    return;
-                }
-                TextBox textBox = sender as TextBox;
-                if (textBox == System.Windows.Input.FocusManager.GetFocusedElement())
-                {
-                    return;
-                }
+                System.Diagnostics.Debug.WriteLine("**error: sender is not TextBox");
+                return;
+            }
+            TextBox textBox = sender as TextBox;
+            if (textBox.FocusState != FocusState.Unfocused)
+            {
+                return;
+            }
 
+            TextBoxTextChanged(textBox);
+            connection.Send(
+                messageParser.CreateMessage(MessageParser.MESSAGE_TYPE.FILTERS_GAIN),
+                true);
+        }
+
+        private void textbox_filter_KeyUp(object sender, object args)
+        {
+            PrintLine();
+            // check pre-conditions
+            if (!(sender is TextBox))
+            {
+                System.Diagnostics.Debug.WriteLine("**error: sender is not TextBox");
+                return;
+            }
+            TextBox textBox = sender as TextBox;
+
+            if (!(args is KeyRoutedEventArgs))
+            {
+                System.Diagnostics.Debug.WriteLine("args is not a KeyRoutedEventArgs, but rather a " + args.GetType().FullName);
+                return;
+            }
+            if ((args as KeyRoutedEventArgs).Key == Windows.System.VirtualKey.Enter)
+            {
                 TextBoxTextChanged(textBox);
                 connection.Send(
                     messageParser.CreateMessage(MessageParser.MESSAGE_TYPE.FILTERS_GAIN),
                     true);
-            });
+            }
         }
 
-        private void textbox_filter_KeyUp(object sender, System.Windows.Input.KeyEventArgs args)
+        private void grid_graphical_representation_Tap(object sender, TappedRoutedEventArgs e)
         {
             PrintLine();
-            Deployment.Current.Dispatcher.BeginInvoke(() =>
-            {
-                // check pre-conditions
-                if (!(sender is TextBox))
-                {
-                    System.Diagnostics.Debug.WriteLine("**error: sender is not TextBox");
-                    return;
-                }
-                TextBox textBox = sender as TextBox;
-
-                if (args.Key == System.Windows.Input.Key.Enter)
-                {
-                    TextBoxTextChanged(textBox);
-                    connection.Send(
-                        messageParser.CreateMessage(MessageParser.MESSAGE_TYPE.FILTERS_GAIN),
-                        true);
-                }
-            });
+            grid_graphical_representation_MoveScrollViewer(
+                e.GetPosition(sender as Grid));
         }
 
-        private void grid_graphical_representation_Tap(object sender, GestureEventArgs e)
+        private void grid_graphical_representation_MouseMove(object sender, DragEventArgs e)
         {
             PrintLine();
-            Deployment.Current.Dispatcher.BeginInvoke(() =>
-            {
-                grid_graphical_representation_MoveScrollViewer(
-                    e.GetPosition(sender as Grid));
-            });
+            grid_graphical_representation_MoveScrollViewer(
+                e.GetPosition(sender as Grid));
         }
 
-        private void grid_graphical_representation_MouseMove(object sender, MouseEventArgs e)
+        private void button_zero_equalizer_Tapped(object sender, TappedRoutedEventArgs e)
         {
             PrintLine();
-            Deployment.Current.Dispatcher.BeginInvoke(() =>
+            // zero out the filters
+            string[] zeroes = new string[filterManager.Filters.Count];
+            for (int i = 0; i < zeroes.Length; i++)
             {
-                grid_graphical_representation_MoveScrollViewer(
-                    e.GetPosition(sender as Grid));
-            });
+                zeroes[i] = "0";
+            }
+            filterManager.SetNewGainValues(zeroes);
+
+            // send message
+            connection.Send(messageParser.CreateMessage(
+                MessageParser.MESSAGE_TYPE.FILTERS_GAIN), true);
         }
 
-        private void button_zero_equalizer_Tap(object sender, GestureEventArgs e)
+        private void button_remove_filter_Tapped(object sender, TappedRoutedEventArgs args)
         {
             PrintLine();
-            Deployment.Current.Dispatcher.BeginInvoke(() =>
-            {
-                // zero out the filters
-                string[] zeroes = new string[filterManager.Filters.Count];
-                for (int i = 0; i < zeroes.Length; i++)
-                {
-                    zeroes[i] = "0";
-                }
-                filterManager.SetNewGainValues(zeroes);
+            // add filter
+            filterManager.RemoveFilter();
+            ScrollToFilter(filterManager.Filters.Count - 1);
 
-                // send message
-                connection.Send(messageParser.CreateMessage(
-                    MessageParser.MESSAGE_TYPE.FILTERS_GAIN), true);
-            });
+            // send message
+            connection.Send(messageParser.CreateMessage(
+                MessageParser.MESSAGE_TYPE.FILTER_REMOVED), true);
         }
 
-        private void button_remove_filter_Tap(object sender, GestureEventArgs args)
+        private void button_add_filter_Tapped(object sender, TappedRoutedEventArgs e)
         {
             PrintLine();
-            Deployment.Current.Dispatcher.BeginInvoke(() =>
-            {
-                // add filter
-                filterManager.RemoveFilter();
-                ScrollToFilter(filterManager.Filters.Count - 1);
+            // add filter
+            filterManager.AddFilter(0);
 
-                // send message
-                connection.Send(messageParser.CreateMessage(
-                    MessageParser.MESSAGE_TYPE.FILTER_REMOVED), true);
-            });
-        }
-
-        private void button_add_filter_Tap(object sender, GestureEventArgs e)
-        {
-            PrintLine();
-            Deployment.Current.Dispatcher.BeginInvoke(() =>
-            {
-                // add filter
-                filterManager.AddFilter(0);
-
-                // send message
-                connection.Send(messageParser.CreateMessage(
-                    MessageParser.MESSAGE_TYPE.FILTER_ADDED), true);
-            });
+            // send message
+            connection.Send(messageParser.CreateMessage(
+                MessageParser.MESSAGE_TYPE.FILTER_ADDED), true);
         }
 
         private void checkbox_apply_equalizer_Checked(object sender, RoutedEventArgs e)
         {
             PrintLine();
-            Deployment.Current.Dispatcher.BeginInvoke(() =>
-            {
-                // send message
-                connection.Send(messageParser.CreateMessage(
-                    MessageParser.MESSAGE_TYPE.FILTER_APPLY), true);
-            });
+            // send message
+            connection.Send(messageParser.CreateMessage(
+                MessageParser.MESSAGE_TYPE.FILTER_APPLY), true);
         }
 
-        private void button_prev_Tap(object sender, GestureEventArgs e)
+        private void button_prev_Tapped(object sender, TappedRoutedEventArgs e)
         {
             PrintLine();
-            Deployment.Current.Dispatcher.BeginInvoke(() =>
-            {
-                // send message
-                connection.Send(messageParser.CreateMessage(
-                    MessageParser.MESSAGE_TYPE.PREV_TRACK), true);
-            });
+            // send message
+            connection.Send(messageParser.CreateMessage(
+                MessageParser.MESSAGE_TYPE.PREV_TRACK), true);
         }
 
-        private void button_play_pause_Tap(object sender, GestureEventArgs e)
+        private void button_play_Tapped(object sender, TappedRoutedEventArgs e)
         {
             PrintLine();
-            Deployment.Current.Dispatcher.BeginInvoke(() =>
-            {
-                var playpause = (isPlaying)
-                    ? MessageParser.MESSAGE_TYPE.PAUSE
-                    : MessageParser.MESSAGE_TYPE.PLAY;
+            var playpause = MessageParser.MESSAGE_TYPE.PLAY;
 
-                // send message
-                connection.Send(messageParser.CreateMessage(
-                    playpause), true);
-            });
+            // send message
+            connection.Send(messageParser.CreateMessage(
+                playpause), true);
         }
 
-        private void button_next_Tap(object sender, GestureEventArgs e)
+        private void button_pause_Tapped(object sender, TappedRoutedEventArgs e)
         {
             PrintLine();
-            Deployment.Current.Dispatcher.BeginInvoke(() =>
-            {
-                // send message
-                connection.Send(messageParser.CreateMessage(
-                    MessageParser.MESSAGE_TYPE.NEXT_TRACK), true);
-            });
+            var playpause = MessageParser.MESSAGE_TYPE.PAUSE;
+
+            // send message
+            connection.Send(messageParser.CreateMessage(
+                playpause), true);
         }
 
-        private void LayoutRoot_MouseEnter(object sender, MouseEventArgs e)
+        private void button_next_Tapped(object sender, TappedRoutedEventArgs e)
+        {
+            PrintLine();
+            // send message
+            connection.Send(messageParser.CreateMessage(
+                MessageParser.MESSAGE_TYPE.NEXT_TRACK), true);
+        }
+
+        private void LayoutRoot_MouseEnter(object sender, object e)
         {
             IsTouchActive = true;
         }
 
-        private void LayoutRoot_MouseLeave(object sender, MouseEventArgs e)
+        private void LayoutRoot_MouseLeave(object sender, object e)
         {
             IsTouchActive = false;
-
         }
 
         #endregion

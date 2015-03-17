@@ -146,9 +146,14 @@
                 </Button.Background>
             </Button>
             <Canvas Width="12" />
-            <Button x:Name="button_play_pause" Width="38" Height="56" BorderBrush="#FF4D4D4D" MinWidth="0" MinHeight="0">
+            <Button x:Name="button_play" Width="38" Height="56" BorderBrush="#FF4D4D4D" MinWidth="0" MinHeight="0">
                 <Button.Background>
                     <ImageBrush Stretch="Fill" ImageSource="/Assets/play.png"/>
+                </Button.Background>
+            </Button>
+            <Button x:Name="button_pause" Width="38" Height="56" BorderBrush="#FF4D4D4D" MinWidth="0" MinHeight="0" Visibility="Collapsed">
+                <Button.Background>
+                    <ImageBrush Stretch="Fill" ImageSource="/Assets/pause.png"/>
                 </Button.Background>
             </Button>
             <Canvas Width="12" />
