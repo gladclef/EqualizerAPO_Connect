@@ -1,17 +1,11 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Net;
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Navigation;
 using System.Threading;
-using Microsoft.Phone.Controls;
-using Microsoft.Phone.Shell;
+using Windows.UI.Xaml;
+using Windows.UI.Xaml.Navigation;
 
 namespace equalizerapo_connect_universal
 {
-    public partial class ConnectToServer : PhoneApplicationPage
+    public partial class ConnectToServer
     {
         public const string LAST_ADDRESS = "last loaded ipaddress";
 
@@ -24,7 +18,7 @@ namespace equalizerapo_connect_universal
             LoadIPAddress();
         }
 
-        protected override void OnNavigatedTo(System.Windows.Navigation.NavigationEventArgs e)
+        protected override void OnNavigatedTo(NavigationEventArgs e)
         {
             base.OnNavigatedTo(e);
             //NavigationService.Navigate(new Uri("/MainPage.xaml", UriKind.Relative));
@@ -40,7 +34,7 @@ namespace equalizerapo_connect_universal
             }
         }
 
-        private void button_connect_Click(object sender, RoutedEventArgs e)
+        private void button_connect_Click(object sender, RoutedEventArgs args)
         {
             string hostname = this.textbox_hostname.Text;
             int port = Connection.APP_PORT;
@@ -63,8 +57,7 @@ namespace equalizerapo_connect_universal
             if (success == "Success")
             {
                 (new ManualResetEvent(false)).WaitOne(1000);
-                NavigationService.Navigate(
-                    new Uri("/Equalizer.xaml", UriKind.Relative));
+                Frame.Navigate(typeof(Equalizer));
             }
         }
 
