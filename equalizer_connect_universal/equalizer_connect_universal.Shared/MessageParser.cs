@@ -23,7 +23,7 @@ namespace equalizer_connect_universal
 
         #region public methods
 
-        public MessageParser(FilterManager fm, Equalizer eq)
+        public MessageParser(FilterManager fm, EqualizerManager eq)
         {
             PrintLine();
             filterAPI = fm;
@@ -78,13 +78,12 @@ namespace equalizer_connect_universal
                     {
                         ParseMessage(nextMessage);
                     }
-                    equalizer.TrackChanged();
                     break;
                 case "artist":
-                    equalizer.currentTrack.Artist = restOfMessage;
+                    equalizer.CurrentTrack.Artist = restOfMessage;
                     break;
                 case "trackname":
-                    equalizer.currentTrack.Title = restOfMessage;
+                    equalizer.CurrentTrack.Title = restOfMessage;
                     break;
             }
         }

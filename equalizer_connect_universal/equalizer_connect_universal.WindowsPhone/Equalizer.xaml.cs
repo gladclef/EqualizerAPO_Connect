@@ -48,10 +48,6 @@ namespace equalizer_connect_universal
         // object references
 
         /// <summary>
-        /// Reference to the track currently being played.
-        /// </summary>
-        public Track currentTrack { get; private set; }
-        /// <summary>
         /// UI Sliders linked to the <see cref="filterManager">filters</see>.
         /// </summary>
         private LinkedList<Slider> filterSliders;
@@ -221,13 +217,14 @@ namespace equalizer_connect_universal
             connection = Connection.GetInstance();
             equalizerManager = new EqualizerManager();
             filterManager = FilterManager.GetInstance();
-            messageParser = new MessageParser(filterManager, this);
+            messageParser = new MessageParser(filterManager, equalizerManager);
             scrollValues = new Dictionary<string, double>();
             rectGraphicRep = new LinkedList<Rectangle>();
             SelectedSliderIndex = -1;
 
             // get updates from the equalizerManager
-            equalizerManager.PlaybackUpdated += new EventHandler(UpdatePlayback);
+            equalizerManager.PlaybackUpdatedEvent += UpdatePlayback;
+            equalizerManager.TrackChangedEvent += UpdateTrackname;
 
             // check for updates from the viewscroller
             checkScrollTimer = new DispatcherTimer();
@@ -250,10 +247,6 @@ namespace equalizer_connect_universal
             filterManager.filterChangedEvent += UpdateFilter;
             filterManager.volumeChangedEvent += UpdateVolume;
             filterManager.equalizerAppliedEvent += UpdateIsEqualizerApplied;
-
-            // set up track reference
-            currentTrack = new Track();
-            currentTrack.ChangedEvent += UpdateTrackname;
 
             // set up connection
             connection.MessageRecievedEvent += MessageReceived;
@@ -404,7 +397,7 @@ namespace equalizer_connect_universal
             connection.SideDisconnect();
         }
 
-        private void UpdateTrackname(object sender, EventArgs args)
+        private void UpdateTrackname(object sender, object args)
         {
             PrintLine();
             Track.TrackChangedEventArgs targs =
@@ -413,8 +406,8 @@ namespace equalizer_connect_universal
             // System.Diagnostics.Debug.WriteLine("UpdateTrackname [" + targs.property + ":" + targs.newValue + "], " + currentTrack.Artist + ", " + currentTrack.Title);
             textblock_now_playing.Text =
                 "Now Playing: " +
-                currentTrack.Artist + " - " +
-                currentTrack.Title;
+                equalizerManager.CurrentTrack.Artist + " - " +
+                equalizerManager.CurrentTrack.Title;
         }
 
         private void UpdateFilters(object sender, EventArgs args)
@@ -667,8 +660,7 @@ namespace equalizer_connect_universal
                 updateScrollTimer.Stop();
                 rectangle_selected.Margin = new Thickness(
                     scrollValues["rectLeftNew"], 0, 0, 0);
-                scrollviewer_equalizer.ScrollToHorizontalOffset(
-                    scrollValues["scrollNew"]);
+                scrollviewer_equalizer.ChangeView(scrollValues["scrollNew"], 0, 0);
                 scrollValues["iteration"] = 0;
                 return;
             }
@@ -687,8 +679,7 @@ namespace equalizer_connect_universal
             // update UI
             rectangle_selected.Margin = new Thickness(
                 rectNow, 0, 0, 0);
-            scrollviewer_equalizer.ScrollToHorizontalOffset(
-                scrollNow);
+            scrollviewer_equalizer.ChangeView(scrollNow, 0, 0);
 
             // increase iterations
             scrollValues["iteration"] += 1;
@@ -883,7 +874,7 @@ namespace equalizer_connect_universal
                 updateScrollTimer.Stop();
 
                 // update
-                scrollviewer_equalizer.ScrollToHorizontalOffset(scroll);
+                scrollviewer_equalizer.ChangeView(scroll, 0, 0);
             }
         }
 
