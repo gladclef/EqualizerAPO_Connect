@@ -18,8 +18,6 @@ namespace equalizerapo_connect_universal
     {
         #region constants
 
-        public const double GAIN_ACCURACY = 0.1;
-
         #endregion
 
         #region fields/properties
@@ -550,7 +548,7 @@ namespace equalizerapo_connect_universal
 
                 // update the slider
                 Slider slider = filterSliders.ElementAt(index);
-                if (Math.Abs(slider.Value - gain) >= GAIN_ACCURACY)
+                if (Math.Abs(slider.Value - gain) >= FilterManager.GAIN_ACCURACY)
                 {
                     slider.Value = gain;
                 }
@@ -751,7 +749,7 @@ namespace equalizerapo_connect_universal
 
             // check that the value has changed
             Filter filter = filterManager.Filters.ElementAt(index).Value;
-            if (Math.Abs(gain - filter.Gain) < GAIN_ACCURACY)
+            if (Math.Abs(gain - filter.Gain) < FilterManager.GAIN_ACCURACY)
             {
                 return;
             }
@@ -1008,7 +1006,7 @@ namespace equalizerapo_connect_universal
         {
             PrintLine();
             // check that the value is new
-            if (Math.Abs(slider_volume.Value - filterManager.PreAmpGain) < GAIN_ACCURACY)
+            if (Math.Abs(slider_volume.Value - filterManager.PreAmpGain) < FilterManager.GAIN_ACCURACY)
             {
                 return;
             }
@@ -1073,7 +1071,7 @@ namespace equalizerapo_connect_universal
 
             // check that the value is new
             Filter filter = filterManager.Filters.ElementAt(index).Value;
-            if (Math.Abs(slider.Value - filter.Gain) < GAIN_ACCURACY)
+            if (Math.Abs(slider.Value - filter.Gain) < FilterManager.GAIN_ACCURACY)
             {
                 return;
             }

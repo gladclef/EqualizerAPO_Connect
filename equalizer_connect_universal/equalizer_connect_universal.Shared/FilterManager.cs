@@ -10,6 +10,7 @@ namespace equalizerapo_connect_universal
     {
         #region constants
 
+        public const double GAIN_ACCURACY = 0.1;
         public const double MAX_PREAMP_GAIN = 30;
         public const double GAIN_MAX = 15;
 
@@ -151,7 +152,7 @@ namespace equalizerapo_connect_universal
                 double gain = Convert.ToDouble(newFilterGains[filterIndex]);
 
                 // check that the gain will change
-                if (Math.Abs(filter.Gain - gain) < Equalizer.GAIN_ACCURACY)
+                if (Math.Abs(filter.Gain - gain) < GAIN_ACCURACY)
                 {
                     continue;
                 }
@@ -349,6 +350,8 @@ namespace equalizerapo_connect_universal
 
         #endregion
 
+        #region classes
+
         public class FilterEventArgs : EventArgs
         {
             public int[] filterIndices;
@@ -357,6 +360,8 @@ namespace equalizerapo_connect_universal
                 filterIndices = indices;
             }
         }
+
+        #endregion
 
         public static void PrintLine(
             [System.Runtime.CompilerServices.CallerLineNumberAttribute] int line = 0,
