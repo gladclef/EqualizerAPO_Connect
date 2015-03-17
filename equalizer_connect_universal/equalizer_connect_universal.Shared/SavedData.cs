@@ -5,7 +5,7 @@ using System.IO.IsolatedStorage;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace equalizerapo_connect_universal
+namespace equalizer_connect_universal
 {
     class SavedData
     {

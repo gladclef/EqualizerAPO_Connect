@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace equalizerapo_connect_universal
+namespace equalizer_connect_universal
 {
     public class MessageParser
     {
@@ -17,7 +17,7 @@ namespace equalizerapo_connect_universal
             FILTER_APPLY, NEXT_TRACK, PREV_TRACK
         };
         private FilterManager filterAPI;
-        private Equalizer equalizer;
+        private EqualizerManager equalizer;
 
         #endregion
 

@@ -12,7 +12,7 @@ using Windows.UI.Xaml.Media;
 using Windows.UI.Xaml.Navigation;
 using Windows.UI.Xaml.Shapes;
 
-namespace equalizerapo_connect_universal
+namespace equalizer_connect_universal
 {
     public partial class Equalizer
     {

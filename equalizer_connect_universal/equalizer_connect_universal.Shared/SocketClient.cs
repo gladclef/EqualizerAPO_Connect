@@ -4,7 +4,7 @@ using Windows.Networking;
 using Windows.Networking.Sockets;
 using Windows.Storage.Streams;
 
-namespace equalizerapo_connect_universal
+namespace equalizer_connect_universal
 {
     /// <summary>
     /// Used as an interface to sockets.

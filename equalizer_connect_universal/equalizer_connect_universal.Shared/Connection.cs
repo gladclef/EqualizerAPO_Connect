@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using Windows.UI.Xaml;
 
-namespace equalizerapo_connect_universal
+namespace equalizer_connect_universal
 {
     public class Connection
     {

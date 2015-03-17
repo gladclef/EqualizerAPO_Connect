@@ -3,7 +3,7 @@ using System.Threading;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Navigation;
 
-namespace equalizerapo_connect_universal
+namespace equalizer_connect_universal
 {
     public partial class ConnectToServer
     {
