@@ -1,11 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Net;
 using System.Threading;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows;
 using Windows.Networking;
 using Windows.Networking.Sockets;
 using Windows.Storage.Streams;

@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
+using Windows.UI.Xaml;
 
 namespace equalizerapo_connect_universal
 {
@@ -13,18 +14,34 @@ namespace equalizerapo_connect_universal
     {
         #region constants
 
-        // why 2048? because Arther C. Clark, that's why
+        /// <summary>
+        /// why 2048? because Arther C. Clark, that's why
+        /// </summary>
         public const int APP_PORT = 2048;
-        // used in testing with windows simple TCP/IP services
+        /// <summary>
+        /// used in testing with windows simple TCP/IP services
+        /// </summary>
         public const int ECHO_PORT = 7;
-        // used in testing with windows simple TCP/IP services
+        /// <summary>
+        /// used in testing with windows simple TCP/IP services
+        /// </summary>
         public const int QOTD_PORT = 17;
-        // measured in seconds
-        public const int KEEP_ALIVE_TIMOUT = 1;
-        public const double LISTENING_TIMOUT = 0.03;
-        public const double SHORT_TIMOUT = 0.01;
-        // indicates that a message was blocked for being a non-important message
+        /// <summary>
+        /// how often to check for a keep-alive, measured in seconds
+        /// </summary>
+        public const double KEEP_ALIVE_TIMOUT = 1;
+        /// <summary>
+        /// how often to allow messages to go through, measured in seconds
+        /// </summary>
+        public const double SHORT_TIMEOUT = 0.01;
+        /// <summary>
+        /// indicates that a message was blocked for being a non-important message
+        /// </summary>
         public const string MESSAGE_BLOCKED = "message blocked";
+        /// <summary>
+        /// Message returned upon a successful attempt
+        /// </summary>
+        public const string SUCCESS = "Success";
 
         #endregion
 
@@ -32,10 +49,7 @@ namespace equalizerapo_connect_universal
 
         private static Connection Instance;
         private SocketClient currentSocketClient;
-        private CancellationToken cancelKeepAlive;
-        private CancellationToken cancelMessageListener;
-        private CancellationToken cancelShortMessageListener;
-        private Queue<string> messageQueue;
+        private DispatcherTimer KeepAliveTimer;
         private long lastSendTime;
 
         #endregion
@@ -84,17 +98,13 @@ namespace equalizerapo_connect_universal
             }
             catch (UnauthorizedAccessException)
             {
-                Deployment.Current.Dispatcher.BeginInvoke(() =>
-                {
-                    EndConnection();
-                });
+                EndConnection();
             }
         }
 
         private void Init()
         {
             PrintLine();
-            messageQueue = new Queue<string>();
         }
 
         public string Connect(String hostname, int port)
@@ -106,123 +116,59 @@ namespace equalizerapo_connect_universal
             }
             currentSocketClient = new SocketClient();
 
-            string success = currentSocketClient.Connect(hostname, port);
-            if (success == SocketClient.SUCCESS)
+            try
             {
-                // handle incoming messages
-                currentSocketClient.HandleIncomingMessages(
-                    new SocketClient.SocketCallbackDelegate(SocketCallback));
-
-                // create the listener
-                KeepAliveTimer = new DispatcherTimer();
-                KeepAliveTimer.Tick += new EventHandler(CheckAlive);
-                KeepAliveTimer.Interval = new TimeSpan(0, 0, Connection.KEEP_ALIVE_TIMOUT);
-                KeepAliveTimer.Start();
-
-                // create the listener
-                ListeningTimer = new DispatcherTimer();
-                ListeningTimer.Tick += new EventHandler(GetMessage);
-                ListeningTimer.Interval = new TimeSpan(0, 0, 0, 0,
-                    Convert.ToInt32(Connection.LISTENING_TIMOUT * 1000));
-                ListeningTimer.Start();
-
-                // create the listener
-                ShortTimer = new DispatcherTimer();
-                ShortTimer.Tick += new EventHandler(GetMessage);
-                ShortTimer.Interval = new TimeSpan(0, 0, 0, 0,
-                    Convert.ToInt32(Connection.SHORT_TIMOUT * 1000));
+                currentSocketClient.Connect(hostname, port);
             }
-            else
+            catch (Exception e)
             {
                 currentSocketClient.Close();
                 currentSocketClient = null;
+                return e.Message;
             }
-            
-            return success;
+
+            // handle incoming messages
+            currentSocketClient.MessageReceived += new EventHandler(SocketCallback);
+
+            // create the listener
+            KeepAliveTimer = new DispatcherTimer();
+            KeepAliveTimer.Tick += new EventHandler<object>(CheckAlive);
+            KeepAliveTimer.Interval = new TimeSpan(0, 0, Convert.ToInt32(Connection.KEEP_ALIVE_TIMOUT));
+            KeepAliveTimer.Start();
+
+            return SUCCESS;
         }
 
         public string Send(string data, bool important)
         {
             PrintLine();
             if (currentSocketClient == null) { };
-            PrintLine();
             // check preconditions
             if (currentSocketClient == null)
             {
-                PrintLine();
                 return SocketClient.DISCONNECTED;
             }
 
-            PrintLine();
             // check that there is room for a non-important message
             if (!important &&
-                (DateTime.Now.Ticks - lastSendTime < SHORT_TIMOUT * 1000 * 10000 * 2))
+                (DateTime.Now.Ticks - lastSendTime < SHORT_TIMEOUT * 1000 * 10000 * 2))
             {
                 return MESSAGE_BLOCKED;
             }
 
-            PrintLine();
-            // try to send, get success status
-            string success = currentSocketClient.Send('%' + data);
+            // try to send
+            try
+            {
+                currentSocketClient.Send(data);
+            }
+            catch (Exception e)
+            {
+                return e.Message;
+            }
             lastSendTime = DateTime.Now.Ticks;
+            //System.Diagnostics.Debug.WriteLine(">> " + data);
 
-            PrintLine();
-            // message sending was NOT successful?
-            if (success != SocketClient.SUCCESS)
-            {
-                if (success == SocketClient.DISCONNECTED)
-                {
-                    PrintLine();
-                    // try reconnecting
-                    string reconnectSuccess = currentSocketClient.Reconnect();
-
-                    // reconnecting failed, disconnect
-                    if (reconnectSuccess != SocketClient.SUCCESS)
-                    {
-                        DeferredDisconnected();
-                    }
-                }
-            }
-            else
-            {
-                //System.Diagnostics.Debug.WriteLine(">> " + data);
-            }
-
-            return success;
-        }
-
-        public string Receive()
-        {
-            PrintLine();
-            if (currentSocketClient == null)
-            {
-                throw new InvalidOperationException("no connection established to SocketClient");
-            }
-            return currentSocketClient.Receive();
-        }
-
-        public string Receive(bool waitForTimeout)
-        {
-            PrintLine();
-            // check preconditions
-            if (currentSocketClient == null)
-            {
-                throw new InvalidOperationException("no connection established to SocketClient");
-            }
-
-            // try to receive
-            string success = currentSocketClient.Receive(waitForTimeout);
-
-            // message receiving was NOT successful?
-            if (success != SocketClient.SUCCESS)
-            {
-                if (success == SocketClient.DISCONNECTED)
-                {
-                    DeferredDisconnected();
-                }
-            }
-
-            return success;
+            return SUCCESS;
         }
 
         public void SideDisconnect()
@@ -248,27 +194,18 @@ namespace equalizerapo_connect_universal
 
         #region private methods
 
-        private void CheckAlive(object sender, EventArgs e)
+        private void CheckAlive(object sender, object e)
         {
             PrintLine();
             Send(SocketClient.KEEP_ALIVE, false);
         }
 
-        public void GetMessage(object sender, EventArgs e)
+        public void GetMessage(string message)
         {
-            PrintLine();
-            if (messageQueue.Count == 0)
-            {
-                // no more messages, stop listening so quickly
-                ShortTimer.Stop();
-                return;
-            }
-            string message = messageQueue.Dequeue();
-
             if (message == SocketClient.KEEP_ALIVE)
             {
-                // continue through the queue until a useful message is received
-                GetMessage(sender, e);
+                // ignore keep alive messages
+                return;
             }
             else if (message == SocketClient.OPERATION_TIMEOUT ||
                 message == SocketClient.UNINITIALIZED ||
@@ -280,9 +217,8 @@ namespace equalizerapo_connect_universal
             {
                 if (MessageRecievedEvent != null)
                 {
+                    // pass the message along
                     MessageRecievedEvent(this, new MessageReceivedEventArgs(message));
-                    // start listening for messages more often
-                    ShortTimer.Start();
                 }
             }
         }
@@ -313,16 +249,6 @@ namespace equalizerapo_connect_universal
         private void EndConnection()
         {
             PrintLine();
-            if (ListeningTimer != null)
-            {
-                ListeningTimer.Stop();
-                ListeningTimer = null;
-            }
-            if (ShortTimer != null)
-            {
-                ShortTimer.Stop();
-                ShortTimer = null;
-            }
             if (KeepAliveTimer != null)
             {
                 KeepAliveTimer.Stop();
@@ -335,67 +261,28 @@ namespace equalizerapo_connect_universal
             }
         }
 
-        private void SocketCallback(object s, System.Net.Sockets.SocketAsyncEventArgs e)
+        private void SocketCallback(object s, object args)
         {
             PrintLine();
-            // get ready for the next message
-            if (currentSocketClient != null)
-            {
-                try
-                {
-                    currentSocketClient.HandleIncomingMessages(
-                        new SocketClient.SocketCallbackDelegate(SocketCallback));
-                }
-                catch (ObjectDisposedException)
-                {
-                    // do something here?
-                }
-            }
             
-            // receive and parse the message
-            string message;
-            if (e.SocketError == System.Net.Sockets.SocketError.Success)
+            // check the type of args
+            if (!(args is SocketClient.MessageReceivedEventArgs))
             {
-                // Retrieve the data from the buffer
-                message = Encoding.UTF8.GetString(e.Buffer, e.Offset, e.BytesTransferred);
-                message = message.Trim('\0');
+                System.Diagnostics.Debug.WriteLine("args is of type " + args.GetType().FullName);
+                return;
+            }
+
+            // receive and parse the message
+            string message = (args as SocketClient.MessageReceivedEventArgs).message;
+
+            // determine if this message is either a disconnect or worthy message
+            if (String.IsNullOrEmpty(message))
+            {
+                return;
             }
             else
             {
-                message = e.SocketError.ToString();
-            }
-
-            // parse messages
-            string[] messages = message.Split(new char[] { '%' });
-
-            foreach (string m in messages)
-            {
-                // determine if this message is either a disconnect or worthy message
-                if (m.Length == 0)
-                {
-                    continue;
-                }
-                else if (m == SocketClient.CONNECTION_ABORTED)
-                {
-                    PrintLine();
-                    // try reconnecting
-                    string reconnectSuccess = currentSocketClient.Reconnect();
-
-                    // reconnecting failed, disconnect
-                    if (reconnectSuccess != SocketClient.SUCCESS)
-                    {
-                        DeferredDisconnected();
-                    }
-                }
-                else if (m == SocketClient.CONNECTION_RESET)
-                {
-                    // do nothing?
-                    System.Diagnostics.Debug.WriteLine(m);
-                }
-                else
-                {
-                    messageQueue.Enqueue(m);
-                }
+                GetMessage(message);
             }
         }
         
