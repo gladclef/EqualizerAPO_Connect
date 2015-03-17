@@ -40,6 +40,10 @@ namespace equalizer_connect_universal
         /// and updates their values. Also handles filter changed events.
         /// </summary>
         private FilterManager filterManager;
+        /// <summary>
+        /// Manages the state of the equalizer, including playback and constants
+        /// </summary>
+        private EqualizerManager equalizerManager;
 
         // object references
 
@@ -102,22 +106,6 @@ namespace equalizer_connect_universal
         /// horizontal offset has been changed.
         /// </summary>
         private DispatcherTimer checkScrollTimer;
-        /// <summary>
-        /// Is the current song playing or paused?
-        /// </summary>
-        private bool isPlaying;
-        /// <summary>
-        /// Updates the playback when changed via <see cref="UpdatePlayback"/>.
-        /// </summary>
-        public bool IsPlaying
-        {
-            get { return isPlaying; }
-            set
-            {
-                isPlaying = value;
-                UpdatePlayback();
-            }
-        }
         /// <summary>
         /// Used for smooth scrolling. Possible keys are:
         /// rectLeftOld
@@ -221,60 +209,56 @@ namespace equalizer_connect_universal
             InitializeComponent();
 
             // set min/max on volume and attach event handlers
-            slider_volume.Minimum = -FilterManager.MAX_PREAMP_GAIN;
-            slider_volume.Maximum = FilterManager.MAX_PREAMP_GAIN;
-            slider_volume.ValueChanged += new RangeBaseValueChangedEventHandler(slider_volume_ValueChanged);
-            textbox_volume.TextChanged += new TextChangedEventHandler(textbox_volume_TextChanged);
-            textbox_volume.KeyUp += new KeyEventHandler(textbox_volume_KeyUp);
+            slider_volume.Minimum = -EqualizerManager.MAX_PREAMP_GAIN;
+            slider_volume.Maximum = EqualizerManager.MAX_PREAMP_GAIN;
+            slider_volume.ValueChanged += slider_volume_ValueChanged;
+            textbox_volume.TextChanged += textbox_volume_TextChanged;
+            textbox_volume.KeyUp += textbox_volume_KeyUp;
 
-            PrintLine();
             // create new instances of things and set initial values
             filterSliders = new LinkedList<Slider>();
             filterTextboxes = new LinkedList<TextBox>();
             connection = Connection.GetInstance();
+            equalizerManager = new EqualizerManager();
             filterManager = FilterManager.GetInstance();
             messageParser = new MessageParser(filterManager, this);
             scrollValues = new Dictionary<string, double>();
             rectGraphicRep = new LinkedList<Rectangle>();
             SelectedSliderIndex = -1;
 
-            PrintLine();
+            // get updates from the equalizerManager
+            equalizerManager.PlaybackUpdated += new EventHandler(UpdatePlayback);
+
             // check for updates from the viewscroller
             checkScrollTimer = new DispatcherTimer();
             checkScrollTimer.Interval = new TimeSpan(0, 0, 0, 0, 100);
-            checkScrollTimer.Tick += new EventHandler<object>(CheckScrolled);
+            checkScrollTimer.Tick += CheckScrolled;
 
-            PrintLine();
             // smooth scrolling when the selected filter is changed
             updateScrollTimer = new DispatcherTimer();
             updateScrollTimer.Interval = new TimeSpan(0, 0, 0, 0, 30);
-            updateScrollTimer.Tick += new EventHandler<object>(UpdateScrollPosition);
+            updateScrollTimer.Tick += UpdateScrollPosition;
 
-            PrintLine();
             // try and reduce the number of times the textbox has to change
             filterChangedTimer = new DispatcherTimer();
             filterChangedTimer.Interval = new TimeSpan(0, 0, 0, 0, 30);
-            filterChangedTimer.Tick += new EventHandler<object>(UpdateFilterTextBoxes);
+            filterChangedTimer.Tick += UpdateFilterTextBoxes;
 
-            PrintLine();
             // get updates from the filters
-            filterManager.filterAddedEvent += new EventHandler(UpdateFilter);
-            filterManager.filterRemovedEvent += new EventHandler(UpdateFilter);
-            filterManager.filterChangedEvent += new EventHandler(UpdateFilter);
-            filterManager.volumeChangedEvent += new EventHandler(UpdateVolume);
-            filterManager.equalizerAppliedEvent += new EventHandler(UpdateIsEqualizerApplied);
+            filterManager.filterAddedEvent += UpdateFilter;
+            filterManager.filterRemovedEvent += UpdateFilter;
+            filterManager.filterChangedEvent += UpdateFilter;
+            filterManager.volumeChangedEvent += UpdateVolume;
+            filterManager.equalizerAppliedEvent += UpdateIsEqualizerApplied;
 
-            PrintLine();
             // set up track reference
             currentTrack = new Track();
-            currentTrack.ChangedEvent += new EventHandler(UpdateTrackname);
+            currentTrack.ChangedEvent += UpdateTrackname;
 
-            PrintLine();
             // set up connection
-            connection.MessageRecievedEvent += new EventHandler(MessageReceived);
-            connection.DisconnectedEvent += new EventHandler(Disconnected);
-            connection.DisconnectMe += new EventHandler(ConnectionSideDisconnect);
-            PrintLine();
+            connection.MessageRecievedEvent += MessageReceived;
+            connection.DisconnectedEvent += Disconnected;
+            connection.DisconnectMe += ConnectionSideDisconnect;
 
             initCalled = true;
         }
@@ -475,8 +459,8 @@ namespace equalizer_connect_universal
                 Slider slider = new Slider();
                 slider.Width = slider_volume.Width;
                 slider.Height = grid_equalizer.Height;
-                slider.Minimum = -FilterManager.GAIN_MAX;
-                slider.Maximum = FilterManager.GAIN_MAX;
+                slider.Minimum = -EqualizerManager.GAIN_MAX;
+                slider.Maximum = EqualizerManager.GAIN_MAX;
                 slider.Background = new SolidColorBrush(Color.FromArgb(50, 0, 0, 0));
                 slider.Foreground = GetBrush("PhoneAccentBrush");
                 slider.Orientation = slider_volume.Orientation;
@@ -548,7 +532,7 @@ namespace equalizer_connect_universal
 
                 // update the slider
                 Slider slider = filterSliders.ElementAt(index);
-                if (Math.Abs(slider.Value - gain) >= FilterManager.GAIN_ACCURACY)
+                if (Math.Abs(slider.Value - gain) >= EqualizerManager.GAIN_ACCURACY)
                 {
                     slider.Value = gain;
                 }
@@ -618,11 +602,12 @@ namespace equalizer_connect_universal
             }
         }
 
-        private void UpdatePlayback()
+        private void UpdatePlayback(object sender, object args)
         {
             PrintLine();
-            if (isPlaying)
+            if (equalizerManager.IsPlaying)
             {
+                // is playing!
                 if (button_play.Visibility == Visibility.Visible)
                 {
                     button_play.Visibility = Visibility.Collapsed;
@@ -631,6 +616,7 @@ namespace equalizer_connect_universal
             }
             else
             {
+                // is paused!
                 if (button_play.Visibility == Visibility.Collapsed)
                 {
                     button_play.Visibility = Visibility.Visible;
@@ -749,7 +735,7 @@ namespace equalizer_connect_universal
 
             // check that the value has changed
             Filter filter = filterManager.Filters.ElementAt(index).Value;
-            if (Math.Abs(gain - filter.Gain) < FilterManager.GAIN_ACCURACY)
+            if (Math.Abs(gain - filter.Gain) < EqualizerManager.GAIN_ACCURACY)
             {
                 return;
             }
@@ -827,8 +813,8 @@ namespace equalizer_connect_universal
                 }
 
                 // update height
-                double gainPercentage = (filter.Gain + FilterManager.GAIN_MAX) /
-                    (FilterManager.GAIN_MAX * 2);
+                double gainPercentage = (filter.Gain + EqualizerManager.GAIN_MAX) /
+                    (EqualizerManager.GAIN_MAX * 2);
                 double height = (grid_graphical_representation.Height - 4) * gainPercentage;
                 if (height != rect.Height)
                 {
@@ -1006,7 +992,7 @@ namespace equalizer_connect_universal
         {
             PrintLine();
             // check that the value is new
-            if (Math.Abs(slider_volume.Value - filterManager.PreAmpGain) < FilterManager.GAIN_ACCURACY)
+            if (Math.Abs(slider_volume.Value - filterManager.PreAmpGain) < EqualizerManager.GAIN_ACCURACY)
             {
                 return;
             }
@@ -1071,7 +1057,7 @@ namespace equalizer_connect_universal
 
             // check that the value is new
             Filter filter = filterManager.Filters.ElementAt(index).Value;
-            if (Math.Abs(slider.Value - filter.Gain) < FilterManager.GAIN_ACCURACY)
+            if (Math.Abs(slider.Value - filter.Gain) < EqualizerManager.GAIN_ACCURACY)
             {
                 return;
             }

@@ -8,13 +8,6 @@ namespace equalizer_connect_universal
 {
     public class FilterManager
     {
-        #region constants
-
-        public const double GAIN_ACCURACY = 0.1;
-        public const double MAX_PREAMP_GAIN = 30;
-        public const double GAIN_MAX = 15;
-
-        #endregion
 
         #region events
 
@@ -37,9 +30,9 @@ namespace equalizer_connect_universal
             {
                 preAmpGain = Math.Min(
                     Math.Max(
-                        -MAX_PREAMP_GAIN,
+                        -EqualizerManager.MAX_PREAMP_GAIN,
                         value),
-                    MAX_PREAMP_GAIN);
+                    EqualizerManager.MAX_PREAMP_GAIN);
                 if (volumeChangedEvent != null)
                 {
                     volumeChangedEvent(this, EventArgs.Empty);
@@ -152,7 +145,7 @@ namespace equalizer_connect_universal
                 double gain = Convert.ToDouble(newFilterGains[filterIndex]);
 
                 // check that the gain will change
-                if (Math.Abs(filter.Gain - gain) < GAIN_ACCURACY)
+                if (Math.Abs(filter.Gain - gain) < EqualizerManager.GAIN_ACCURACY)
                 {
                     continue;
                 }
