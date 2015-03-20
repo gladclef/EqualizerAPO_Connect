@@ -47,7 +47,13 @@ namespace equalizer_connect_universal
 
         #region fields
 
+        /// <summary>
+        /// Singleton used so that the initial connection to the
+        /// server can be preserved between the connection page and
+        /// the application logic.
+        /// </summary>
         private static Connection Instance;
+
         private SocketClient currentSocketClient;
         private DispatcherTimer KeepAliveTimer;
         private long lastSendTime;
@@ -114,8 +120,9 @@ namespace equalizer_connect_universal
             {
                 currentSocketClient.Close();
             }
-            currentSocketClient = new SocketClient();
+            currentSocketClient = EstablishSocketClient();
 
+            // attempt to connect
             try
             {
                 currentSocketClient.Connect(hostname, port);
@@ -127,9 +134,6 @@ namespace equalizer_connect_universal
                 return e.Message;
             }
 
-            // handle incoming messages
-            currentSocketClient.MessageReceived += new EventHandler(SocketCallback);
-
             // create the listener
             KeepAliveTimer = new DispatcherTimer();
             KeepAliveTimer.Tick += new EventHandler<object>(CheckAlive);
@@ -137,6 +141,17 @@ namespace equalizer_connect_universal
             KeepAliveTimer.Start();
 
             return SUCCESS;
+        }
+
+        public SocketClient EstablishSocketClient()
+        {
+            PrintLine();
+            var sc = new SocketClient();
+            sc.NonFatalException += NonFatalSocketException;
+            sc.FatalException += FatalSocketException;
+            sc.MessageReceived += SocketCallback;
+            sc.SocketClosed += SocketDisconnected;
+            return sc;
         }
 
         public string Send(string data, bool important)
@@ -181,7 +196,8 @@ namespace equalizer_connect_universal
 
         #region public static methods
 
-        public static Connection GetInstance() {
+        public static Connection GetInstance()
+        {
             PrintLine();
             if (Instance == null)
             {
@@ -194,6 +210,30 @@ namespace equalizer_connect_universal
 
         #region private methods
 
+        private void NonFatalSocketException(object sender, object e)
+        {
+            PrintLine();
+            var args = (e as SocketClient.FatalEventArgs);
+            System.Diagnostics.Debug.WriteLine(args.exception.Message);
+            System.Diagnostics.Debug.WriteLine(args.exception.StackTrace);
+            // TODO: anything here?
+        }
+
+        private void FatalSocketException(object sender, object e)
+        {
+            PrintLine();
+            var args = (e as SocketClient.FatalEventArgs);
+            System.Diagnostics.Debug.WriteLine(args.exception.Message);
+            System.Diagnostics.Debug.WriteLine(args.exception.StackTrace);
+            // TODO: anything here?
+        }
+
+        private void SocketDisconnected(object sender, object e)
+        {
+            PrintLine();
+            DeferredDisconnected();
+        }
+
         private void CheckAlive(object sender, object e)
         {
             PrintLine();
@@ -202,6 +242,7 @@ namespace equalizer_connect_universal
 
         public void GetMessage(string message)
         {
+            PrintLine();
             if (message == SocketClient.KEEP_ALIVE)
             {
                 // ignore keep alive messages
@@ -307,8 +348,7 @@ namespace equalizer_connect_universal
             [System.Runtime.CompilerServices.CallerFilePath] string sourceFilePath = "",
             [System.Runtime.CompilerServices.CallerMemberName] string memberName = "")
         {
-            return;
-            System.Diagnostics.Debug.WriteLine(line + ":CX");
+            System.Diagnostics.Debug.WriteLine(line + ":CX:" + memberName);
         }
     }
 }

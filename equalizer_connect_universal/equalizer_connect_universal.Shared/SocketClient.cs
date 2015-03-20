@@ -42,6 +42,7 @@ namespace equalizer_connect_universal
         // number of times to attempt something
         public const int MAX_CONNECT_ATTEMPTS = 3;
         public const int MAX_SEND_ATTEMPS = 3;
+        public const int MAX_LISTEN_ATTEMPTS = 3;
 
         #endregion
 
@@ -71,6 +72,7 @@ namespace equalizer_connect_universal
         /// The last hostName that was used to try and establish a connection.
         /// </summary>
         string lastHostName = "";
+
         /// <summary>
         /// The last portNumber that was used to try and establish a connection.
         /// </summary>
@@ -213,11 +215,8 @@ namespace equalizer_connect_universal
             if (numAttempts >= MAX_CONNECT_ATTEMPTS)
             {
                 var e = new TimeoutException("Too many attempts to connect to remote server");
-                if (FatalException != null)
-                {
-                    FatalException(this, new FatalEventArgs(
-                        ExceptionType.CONNECTION_NOT_ESTABLISHED, e));
-                }
+                FatalException(this, new FatalEventArgs(
+                    ExceptionType.CONNECTION_NOT_ESTABLISHED, e));
                 throw e;
             }
 
@@ -234,11 +233,8 @@ namespace equalizer_connect_universal
             }
             catch (ArgumentException e)
             {
-                if (NonFatalException != null)
-                {
-                    NonFatalException(this, new NonFatalEventArgs(
-                        ExceptionType.HOSTNAME_INVALID, e));
-                }
+                NonFatalException(this, new NonFatalEventArgs(
+                    ExceptionType.HOSTNAME_INVALID, e));
 
                 // attempt to reconnect
                 Connect(hostName, portNumber, numAttempts + 1);
@@ -248,20 +244,14 @@ namespace equalizer_connect_universal
                 // If this is an unknown status it means that the error is fatal and retry will likely fail.
                 if (SocketError.GetStatus(e.HResult) == SocketErrorStatus.Unknown)
                 {
-                    if (FatalException != null)
-                    {
-                        FatalException(this, new FatalEventArgs(
-                            ExceptionType.CONNECTION_NOT_ESTABLISHED, e));
-                    }
+                    FatalException(this, new FatalEventArgs(
+                        ExceptionType.CONNECTION_NOT_ESTABLISHED, e));
                     throw;
                 }
                 else
                 {
-                    if (NonFatalException != null)
-                    {
-                        NonFatalException(this, new NonFatalEventArgs(
-                            ExceptionType.CONNECTION_NOT_ESTABLISHED, e));
-                    }
+                    NonFatalException(this, new NonFatalEventArgs(
+                        ExceptionType.CONNECTION_NOT_ESTABLISHED, e));
 
                     // attempt to reconnect
                     Connect(hostName, portNumber, numAttempts + 1);
@@ -296,34 +286,33 @@ namespace equalizer_connect_universal
             {
                 var e = new TimeoutException("Too many attempts to send \"" +
                     data + "\" to remote server");
-                if (FatalException != null)
-                {
-                    FatalException(this, new FatalEventArgs(
-                        ExceptionType.SEND_FAILED, e));
-                }
+                FatalException(this, new FatalEventArgs(
+                    ExceptionType.SEND_FAILED, e));
                 throw e;
             }
 
             // We are re-using the _socket object initialized in the Connect method
             if (_socket == null || _dataWriter == null)
             {
-                if (NonFatalException != null)
-                {
-                    var e = new NullReferenceException(
-                        "Socket is null while attempting to send message \"" + data + "\"");
-                    NonFatalException(this, new NonFatalEventArgs(
-                        ExceptionType.SEND_RECEIVE_NO_SOCKET, e));
-                    throw e;
-                }
+                var e = new NullReferenceException(
+                    "Socket is null while attempting to send message \"" + data + "\"");
+                NonFatalException(this, new NonFatalEventArgs(
+                    ExceptionType.SEND_RECEIVE_NO_SOCKET, e));
+                throw e;
             }
 
-            // Write the string. 
+            // Write the string.
             // Writing data to the writer will just store data in memory.
-            _dataWriter.WriteString(data);
+            if (numAttempts == 0)
+            {
+                _dataWriter.WriteUInt32(Convert.ToUInt32(data.Length));
+                _dataWriter.WriteString(data);
+            }
 
-            // Write the locally buffered data to the network.
+            // attempt to write the data
             try
             {
+                // Write the locally buffered data to the network.
                 await _dataWriter.StoreAsync();
             }
             catch (Exception e)
@@ -331,20 +320,14 @@ namespace equalizer_connect_universal
                 // If this is an unknown status it means that the error if fatal and retry will likely fail.
                 if (SocketError.GetStatus(e.HResult) == SocketErrorStatus.Unknown)
                 {
-                    if (FatalException != null)
-                    {
-                        FatalException(this, new FatalEventArgs(
-                            ExceptionType.SEND_FAILED, e));
-                    }
+                    FatalException(this, new FatalEventArgs(
+                        ExceptionType.SEND_FAILED, e));
                     throw;
                 }
                 else
                 {
-                    if (NonFatalException != null)
-                    {
-                        NonFatalException(this, new NonFatalEventArgs(
-                            ExceptionType.SEND_FAILED, e));
-                    }
+                    NonFatalException(this, new NonFatalEventArgs(
+                        ExceptionType.SEND_FAILED, e));
 
                     // attempt to send again
                     Send(data, numAttempts + 1);
@@ -357,27 +340,23 @@ namespace equalizer_connect_universal
         /// a connection has been establed by Connect().
         /// <param name="sender">The listener that accepted the connection.</param>
         /// <param name="args">Parameters associated with the accepted connection.</param>
-        /// </summary>
-        private void ListenForMessages(
-            StreamSocketListener sender,
-            StreamSocketListenerConnectionReceivedEventArgs args)
-        {
-            ListenForMessages(sender, args, 0);
-        }
-
-        /// <summary>
-        /// Invoked once a connection is accepted by Listen() or
-        /// a connection has been establed by Connect().
-        /// <param name="sender">The listener that accepted the connection.</param>
-        /// <param name="args">Parameters associated with the accepted connection.</param>
         /// <param name="numAttempts">The number of times listening for messages has already been tried</param>
         /// </summary>
         private async void ListenForMessages(
             StreamSocketListener sender,
             StreamSocketListenerConnectionReceivedEventArgs args,
-            int numAttempts)
+            int numAttempts = 0)
         {
             PrintLine();
+
+            // check the number of attempts made
+            if (numAttempts >= MAX_LISTEN_ATTEMPTS)
+            {
+                var e = new TimeoutException("Too many attempts to connect to remote server");
+                FatalException(this, new FatalEventArgs(
+                    ExceptionType.CONNECTION_NOT_ESTABLISHED, e));
+                throw e;
+            }
 
             // get the data reader object
             DataReader reader = null;
@@ -393,14 +372,10 @@ namespace equalizer_connect_universal
             // check that the reader exists
             if (reader == null)
             {
-                if (FatalException != null)
-                {
-                    var e = new NullReferenceException("reader doesn't exist for socket");
-                    FatalException(this, new FatalEventArgs(
-                        ExceptionType.RECEIVE_FAILED, e));
-                    throw e;
-                }
-                return;
+                var e = new NullReferenceException("reader doesn't exist for socket");
+                FatalException(this, new FatalEventArgs(
+                    ExceptionType.RECEIVE_FAILED, e));
+                throw e;
             }
 
             while (true)
@@ -412,10 +387,7 @@ namespace equalizer_connect_universal
                     if (sizeFieldCount != sizeof(uint))
                     {
                         // The underlying socket was closed before we were able to read the whole data.
-                        if (SocketClosed != null)
-                        {
-                            SocketClosed(this, new SocketClosedEventArgs(this));
-                        }
+                        SocketClosed(this, new SocketClosedEventArgs(this));
                         return;
                     }
 
@@ -425,10 +397,7 @@ namespace equalizer_connect_universal
                     if (stringLength != actualStringLength)
                     {
                         // The underlying socket was closed before we were able to read the whole data.
-                        if (SocketClosed != null)
-                        {
-                            SocketClosed(this, new SocketClosedEventArgs(this));
-                        }
+                        SocketClosed(this, new SocketClosedEventArgs(this));
                         return;
                     }
 
@@ -531,10 +500,10 @@ namespace equalizer_connect_universal
 
         public static void PrintLine(
             [System.Runtime.CompilerServices.CallerLineNumberAttribute] int line = 0,
-            [System.Runtime.CompilerServices.CallerFilePath] string sourceFilePath = "")
+            [System.Runtime.CompilerServices.CallerFilePath] string sourceFilePath = "",
+            [System.Runtime.CompilerServices.CallerMemberName] string memberName = "")
         {
-            return;
-            System.Diagnostics.Debug.WriteLine(line + ":SC");
+            System.Diagnostics.Debug.WriteLine(line + ":SC:" + memberName);
         }
     }
 }

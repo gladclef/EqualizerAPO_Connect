@@ -35,8 +35,25 @@ namespace equalizer_connect_universal
         /// </summary>
         public App()
         {
+            UnhandledException += App_UnhandledException;
             this.InitializeComponent();
             this.Suspending += this.OnSuspending;
+        }
+
+        /// <summary>
+        /// Print the exception and break
+        /// </summary>
+        /// <param name="sender">The sender</param>
+        /// <param name="e">The exception args</param>
+        private void App_UnhandledException(object sender, UnhandledExceptionEventArgs e)
+        {
+#if DEBUG
+            if (System.Diagnostics.Debugger.IsAttached)
+            {
+                System.Diagnostics.Debug.WriteLine(e.Message);
+                System.Diagnostics.Debug.WriteLine(e.Exception.StackTrace);
+            }
+#endif
         }
 
         /// <summary>
