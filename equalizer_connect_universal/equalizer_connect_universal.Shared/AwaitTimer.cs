@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using System.Threading;
 using Windows.Foundation;
+using Windows.Storage.Streams;
 
 namespace equalizer_connect_universal
 {
@@ -30,7 +31,7 @@ namespace equalizer_connect_universal
         /// </summary>
         /// <param name="task">The task to wait for</param>
         /// <returns>True on completion, false on cancel/error/timeout</returns>
-        public bool timeTask(IAsyncAction task)
+        public bool timeTask(IAsyncInfo task)
         {
             DateTime stopAt = DateTime.Now.AddMilliseconds(timeoutMillisecs);
             while (stopAt > DateTime.Now)

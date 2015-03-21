@@ -161,7 +161,7 @@ namespace equalizer_connect_universal
             return sc;
         }
 
-        public string Send(string data, bool important)
+        public async Task<string> Send(string data, bool important)
         {
             PrintLine();
             if (currentSocketClient == null) { };
@@ -181,16 +181,20 @@ namespace equalizer_connect_universal
             // try to send
             try
             {
-                currentSocketClient.Send(data);
+                await currentSocketClient.Send(data);
+            }
+            catch (TimeoutException)
+            {
+                return CANT_CONNECT;
             }
             catch (Exception e)
             {
-                System.Diagnostics.Debug.WriteLine("in Connection.Send()");
-                System.Diagnostics.Debug.WriteLine(e.Message);
-                System.Diagnostics.Debug.WriteLine(e.StackTrace);
                 return e.Message;
             }
-            lastSendTime = DateTime.Now.Ticks;
+            finally
+            {
+                lastSendTime = DateTime.Now.Ticks;
+            }
 
             return SUCCESS;
         }

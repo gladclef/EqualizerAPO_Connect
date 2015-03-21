@@ -148,16 +148,24 @@ namespace equalizer_connect_universal
         /// Attempts to reconnect the socket using the same credentials as the
         /// last connection attempt.
         /// </summary>
-        /// <returns>The result of the connection.</returns>
-        public void Reconnect()
+        /// <returns>True if the connection succeeds.</returns>
+        public async Task<bool> Reconnect()
         {
             PrintLine();
 
             // end the last connection
             Close();
 
+            // wait for the previous async event
+            _clientDone.WaitOne(System.Threading.Timeout.Infinite);
+
             // start a new connection
-            Connect(lastHostName, lastPortNumber);
+            bool retval = await Connect(lastHostName, lastPortNumber);
+
+            // connection completed! release async event
+            _clientDone.Set();
+
+            return retval;
         }
 
         /// <summary>
@@ -166,18 +174,20 @@ namespace equalizer_connect_universal
         /// MAX_CONNECT_ATTEMPTS times.
         /// </summary>
         /// <param name="data">The data to send to the server</param>
-        /// <returns>The result of the Send request</returns>
-        public void Send(string data)
+        /// <returns>True if the sending succeeds</returns>
+        public async Task<bool> Send(string data)
         {
             PrintLine();
 
             // wait for the previous async event to finish
             _clientDone.WaitOne(System.Threading.Timeout.Infinite);
 
-            Send(data, 0);
+            bool result = await Send(data, 0);
 
             // sent! release async event
             _clientDone.Set();
+
+            return result;
         }
 
         /// <summary>
@@ -320,10 +330,14 @@ namespace equalizer_connect_universal
         /// </summary>
         /// <param name="data">The data to send to the server</param>
         /// <param name="numAttempts">The number of times a send has already been tried</param>
-        /// <returns>The result of the Send request</returns>
-        private async void Send(string data, int numAttempts)
+        /// <returns>True if the send succeeds.</returns>
+        private async Task<bool> Send(string data, int numAttempts)
         {
             PrintLine();
+
+            // initialize some values
+            bool timerPopped = false;
+            Task<bool> awaitable = null;
 
             System.Diagnostics.Debug.WriteLine(String.Format(">> {0} [{1}]", data, numAttempts));
 
@@ -359,7 +373,8 @@ namespace equalizer_connect_universal
             try
             {
                 // Write the locally buffered data to the network.
-                await _dataWriter.StoreAsync();
+                var timer = new AwaitTimer(3000);
+                timerPopped = !timer.timeTask(_dataWriter.StoreAsync());
             }
             catch (Exception e)
             {
@@ -376,9 +391,23 @@ namespace equalizer_connect_universal
                         ExceptionType.SEND_FAILED, e));
 
                     // attempt to send again
-                    Send(data, numAttempts + 1);
+                    awaitable = Send(data, numAttempts + 1);
                 }
             }
+
+            // wait for tasks to finish
+            if (awaitable != null)
+            {
+                await awaitable;
+            }
+
+            // did the timer pop before the send could be completed?
+            if (timerPopped)
+            {
+                throw new TimeoutException("Timeout on sending");
+            }
+
+            return true;
         }
 
         /// <summary>
