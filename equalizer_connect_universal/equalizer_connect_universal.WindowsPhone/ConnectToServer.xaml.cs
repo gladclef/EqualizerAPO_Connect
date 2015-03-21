@@ -71,7 +71,7 @@ namespace equalizer_connect_universal
         /// </summary>
         /// <param name="hostname">The IPv4 address to connect to.</param>
         /// <param name="port">The port to connect to.</param>
-        private void AttemptConnection(string hostname, int port)
+        private async void AttemptConnection(string hostname, int port)
         {
             Connection connection = Connection.GetInstance();
 
@@ -85,8 +85,9 @@ namespace equalizer_connect_universal
             sleeper.WaitOne(1000);
 
             // try the connection
-            string success = connection.Connect(hostname, port);
-            if (String.IsNullOrEmpty(success))
+            string success = await connection.Connect(hostname, port);
+            if (String.IsNullOrEmpty(success) ||
+                success == Connection.CANT_CONNECT)
             {
                 Log("Failed to connect");
             }

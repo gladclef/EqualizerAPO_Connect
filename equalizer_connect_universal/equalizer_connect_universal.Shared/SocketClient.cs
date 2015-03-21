@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Threading;
+using System.Threading.Tasks;
 using Windows.Networking;
 using Windows.Networking.Sockets;
 using Windows.Storage.Streams;
@@ -66,7 +67,7 @@ namespace equalizer_connect_universal
         /// <summary>
         /// Signaling object used to notify when an asynchronous operation is completed
         /// </summary>
-        static ManualResetEvent _clientDone = new ManualResetEvent(false);
+        AutoResetEvent _clientDone = new AutoResetEvent(true);
 
         /// <summary>
         /// The last hostName that was used to try and establish a connection.
@@ -127,10 +128,20 @@ namespace equalizer_connect_universal
         /// </summary>
         /// <param name="hostName">The name of the host</param>
         /// <param name="portNumber">The port number to connect</param>
-        /// <returns>A string representing the result of this connection attempt</returns>
-        public void Connect(string hostName, int portNumber)
+        /// <returns>True if the connection succeeds, false otherwise</returns>
+        public async Task<bool> Connect(string hostName, int portNumber)
         {
-            Connect(hostName, portNumber, 0);
+            PrintLine();
+
+            // wait for the previous async event
+            _clientDone.WaitOne(System.Threading.Timeout.Infinite);
+
+            bool retval = await Connect(hostName, portNumber, 0);
+
+            // connection completed! release async event
+            _clientDone.Set();
+
+            return retval;
         }
 
         /// <summary>
@@ -141,9 +152,9 @@ namespace equalizer_connect_universal
         public void Reconnect()
         {
             PrintLine();
+
             // end the last connection
             Close();
-            (new ManualResetEvent(false)).WaitOne(500);
 
             // start a new connection
             Connect(lastHostName, lastPortNumber);
@@ -158,7 +169,15 @@ namespace equalizer_connect_universal
         /// <returns>The result of the Send request</returns>
         public void Send(string data)
         {
+            PrintLine();
+
+            // wait for the previous async event to finish
+            _clientDone.WaitOne(System.Threading.Timeout.Infinite);
+
             Send(data, 0);
+
+            // sent! release async event
+            _clientDone.Set();
         }
 
         /// <summary>
@@ -203,10 +222,12 @@ namespace equalizer_connect_universal
         /// <param name="hostName">The name of the host</param>
         /// <param name="portNumber">The port number to connect</param>
         /// <param name="numAttempts">The number of times a connection has already been tried</param>
-        /// <returns>A string representing the result of this connection attempt</returns>
-        private async void Connect(string hostName, int portNumber, int numAttempts)
+        /// <returns>True if the connection succeeds</returns>
+        private async Task<bool> Connect(string hostName, int portNumber, int numAttempts)
         {
             PrintLine();
+
+            System.Diagnostics.Debug.WriteLine(String.Format("connecting: {0}, {1}, {2}", hostName, portNumber, numAttempts));
             string result = string.Empty;
             lastHostName = hostName;
             lastPortNumber = portNumber;
@@ -214,22 +235,26 @@ namespace equalizer_connect_universal
             // check the number of attempts
             if (numAttempts >= MAX_CONNECT_ATTEMPTS)
             {
+                PrintLine();
                 var e = new TimeoutException("Too many attempts to connect to remote server");
                 FatalException(this, new FatalEventArgs(
                     ExceptionType.CONNECTION_NOT_ESTABLISHED, e));
                 throw e;
             }
 
-            // create the socket
+            // initialize some values
+            Task<bool> awaitable = null;
             StreamSocket newSocket = new StreamSocket();
+            bool timerPopped = false;
 
             // connect to the remote end
             try
             {
-                await newSocket.ConnectAsync(
+                var timer = new AwaitTimer(3000);
+                timerPopped = !timer.timeTask(newSocket.ConnectAsync(
                     new HostName(hostName),
                     portNumber.ToString(),
-                    SocketProtectionLevel.PlainSocket);
+                    SocketProtectionLevel.PlainSocket));
             }
             catch (ArgumentException e)
             {
@@ -237,13 +262,14 @@ namespace equalizer_connect_universal
                     ExceptionType.HOSTNAME_INVALID, e));
 
                 // attempt to reconnect
-                Connect(hostName, portNumber, numAttempts + 1);
+                awaitable = Connect(hostName, portNumber, numAttempts + 1);
             }
             catch (Exception e)
             {
                 // If this is an unknown status it means that the error is fatal and retry will likely fail.
                 if (SocketError.GetStatus(e.HResult) == SocketErrorStatus.Unknown)
                 {
+                    PrintLine();
                     FatalException(this, new FatalEventArgs(
                         ExceptionType.CONNECTION_NOT_ESTABLISHED, e));
                     throw;
@@ -254,8 +280,24 @@ namespace equalizer_connect_universal
                         ExceptionType.CONNECTION_NOT_ESTABLISHED, e));
 
                     // attempt to reconnect
-                    Connect(hostName, portNumber, numAttempts + 1);
+                    awaitable = Connect(hostName, portNumber, numAttempts + 1);
                 }
+            }
+
+            // wait for all async connection attempts
+            if (awaitable != null)
+            {
+                await awaitable;
+            }
+
+            PrintLine();
+            System.Diagnostics.Debug.WriteLine("new socket: " + newSocket);
+
+            // did the timer pop? throw an error!
+            if (timerPopped)
+            {
+                newSocket.Dispose();
+                throw new TimeoutException("Timeout on connecting");
             }
 
             // Check that the socket doesn't already exist
@@ -269,6 +311,8 @@ namespace equalizer_connect_universal
             _dataWriter = new DataWriter(_socket.OutputStream);
             _dataReader = new DataReader(_socket.InputStream);
             ListenForMessages(null, null);
+
+            return true;
         }
 
         /// <summary>
@@ -280,6 +324,8 @@ namespace equalizer_connect_universal
         private async void Send(string data, int numAttempts)
         {
             PrintLine();
+
+            System.Diagnostics.Debug.WriteLine(String.Format(">> {0} [{1}]", data, numAttempts));
 
             // check the number of attempts
             if (numAttempts >= MAX_SEND_ATTEMPS)
@@ -405,6 +451,7 @@ namespace equalizer_connect_universal
                     string m = reader.ReadString(actualStringLength);
                     if (MessageReceived != null)
                     {
+                        System.Diagnostics.Debug.WriteLine(String.Format("<< {0} [{1}]", m, numAttempts));
                         MessageReceived(this, new MessageReceivedEventArgs(m));
                     }
                 }

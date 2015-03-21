@@ -42,6 +42,7 @@ namespace equalizer_connect_universal
         /// Message returned upon a successful attempt
         /// </summary>
         public const string SUCCESS = "Success";
+        public const string CANT_CONNECT = "Could not connect";
 
         #endregion
 
@@ -113,7 +114,7 @@ namespace equalizer_connect_universal
             PrintLine();
         }
 
-        public string Connect(String hostname, int port)
+        public async Task<string> Connect(String hostname, int port)
         {
             PrintLine();
             if (currentSocketClient != null)
@@ -125,7 +126,13 @@ namespace equalizer_connect_universal
             // attempt to connect
             try
             {
-                currentSocketClient.Connect(hostname, port);
+                await currentSocketClient.Connect(hostname, port);
+            }
+            catch (TimeoutException)
+            {
+                currentSocketClient.Close();
+                currentSocketClient = null;
+                return CANT_CONNECT;
             }
             catch (Exception e)
             {
@@ -178,10 +185,12 @@ namespace equalizer_connect_universal
             }
             catch (Exception e)
             {
+                System.Diagnostics.Debug.WriteLine("in Connection.Send()");
+                System.Diagnostics.Debug.WriteLine(e.Message);
+                System.Diagnostics.Debug.WriteLine(e.StackTrace);
                 return e.Message;
             }
             lastSendTime = DateTime.Now.Ticks;
-            //System.Diagnostics.Debug.WriteLine(">> " + data);
 
             return SUCCESS;
         }
@@ -212,8 +221,7 @@ namespace equalizer_connect_universal
 
         private void NonFatalSocketException(object sender, object e)
         {
-            PrintLine();
-            var args = (e as SocketClient.FatalEventArgs);
+            var args = (e as SocketClient.NonFatalEventArgs);
             System.Diagnostics.Debug.WriteLine(args.exception.Message);
             System.Diagnostics.Debug.WriteLine(args.exception.StackTrace);
             // TODO: anything here?
