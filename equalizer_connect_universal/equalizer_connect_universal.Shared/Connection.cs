@@ -82,13 +82,6 @@ namespace equalizer_connect_universal
             Init();
         }
 
-        public Connection(String hostname, int port)
-        {
-            PrintLine();
-            Init();
-            Connect(hostname, port);
-        }
-
         ~Connection()
         {
             PrintLine();

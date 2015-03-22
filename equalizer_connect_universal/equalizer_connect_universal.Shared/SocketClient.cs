@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Collections.Generic;
 using Windows.Networking;
 using Windows.Networking.Sockets;
 using Windows.Storage.Streams;
@@ -35,15 +36,16 @@ namespace equalizer_connect_universal
         public const string DISCONNECTED = "NotConnected";
         public const string CONNECTION_ABORTED = "ConnectionAborted";
         public const string CONNECTION_RESET = "ConnectionReset";
+        public const string CONNECTION_CLOSED_REMOTELY = "An existing connection was forcibly closed by the remote host.";
 
         // exception types
         public enum ExceptionType { CONNECTION_NOT_ESTABLISHED, HOSTNAME_INVALID,
             SEND_RECEIVE_NO_SOCKET, SEND_FAILED, RECEIVE_FAILED }
 
         // number of times to attempt something
-        public const int MAX_CONNECT_ATTEMPTS = 3;
-        public const int MAX_SEND_ATTEMPS = 3;
-        public const int MAX_LISTEN_ATTEMPTS = 3;
+        public const int MAX_CONNECT_ATTEMPTS = 1;
+        public const int MAX_SEND_ATTEMPS = 1;
+        public const int MAX_LISTEN_ATTEMPTS = 1;
 
         #endregion
 
@@ -78,6 +80,13 @@ namespace equalizer_connect_universal
         /// The last portNumber that was used to try and establish a connection.
         /// </summary>
         int lastPortNumber = 0;
+
+        /// <summary>
+        /// For each connection that is made and ListenForMessages that is called,
+        /// set up a boolean that represents if that listener should continue
+        /// listening or die (effectively a cancelation token).
+        /// </summary>
+        Dictionary<int, bool> activeListenerIDs = new Dictionary<int, bool>();
 
         #endregion
 
@@ -197,13 +206,24 @@ namespace equalizer_connect_universal
         {
             PrintLine();
 
+            // cancel all active listeners
+            activeListenerIDs[activeListenerIDs.Count - 1] = false;
+
             if (_dataWriter != null)
             {
                 // To reuse the socket with other data writer, application has to detach the stream from the writer
                 // before disposing it. This is added for completeness, as this application closes the socket in
                 // very next block.
-                _dataWriter.DetachStream();
-                _dataWriter.Dispose();
+                try
+                {
+                    _dataWriter.DetachStream();
+                    _dataWriter.Dispose();
+                }
+                catch (Exception)
+                {
+                    // do nothing
+                }
+                _dataWriter = null;
             }
 
             if (_dataReader != null)
@@ -211,14 +231,23 @@ namespace equalizer_connect_universal
                 // To reuse the socket with other data reader, application has to detach the stream from the reader
                 // before disposing it. This is added for completeness, as this application closes the socket in
                 // very next block.
-                _dataReader.DetachStream();
-                _dataReader.Dispose();
+                try
+                {
+                    _dataReader.DetachStream();
+                    _dataReader.Dispose();
+                }
+                catch (Exception)
+                {
+                    // do nothing
+                }
+                _dataReader = null;
             }
 
             if (_socket != null)
             {
                 // Remove the socket from the list of application properties as we are about to close it.
                 _socket.Dispose();
+                _socket = null;
             }
         }
 
@@ -300,12 +329,10 @@ namespace equalizer_connect_universal
                 await awaitable;
             }
 
-            PrintLine();
-            System.Diagnostics.Debug.WriteLine("new socket: " + newSocket);
-
             // did the timer pop? throw an error!
             if (timerPopped)
             {
+                PrintLine();
                 newSocket.Dispose();
                 throw new TimeoutException("Timeout on connecting");
             }
@@ -320,7 +347,11 @@ namespace equalizer_connect_universal
             _socket = newSocket;
             _dataWriter = new DataWriter(_socket.OutputStream);
             _dataReader = new DataReader(_socket.InputStream);
-            ListenForMessages(null, null);
+            ListenForMessages(null, null, activeListenerIDs.Count);
+            activeListenerIDs.Add(activeListenerIDs.Count, true);
+
+            PrintLine();
+            System.Diagnostics.Debug.WriteLine("new socket: " + newSocket);
 
             return true;
         }
@@ -378,9 +409,17 @@ namespace equalizer_connect_universal
             }
             catch (Exception e)
             {
-                // If this is an unknown status it means that the error if fatal and retry will likely fail.
-                if (SocketError.GetStatus(e.HResult) == SocketErrorStatus.Unknown)
+                if (e.Message == CONNECTION_CLOSED_REMOTELY)
                 {
+                    // close the socket
+                    Close();
+                    FatalException(this, new FatalEventArgs(
+                        ExceptionType.RECEIVE_FAILED, e));
+                    throw e;
+                }
+                else if (SocketError.GetStatus(e.HResult) == SocketErrorStatus.Unknown)
+                {
+                    // If this is an unknown status it means that the error if fatal and retry will likely fail.
                     FatalException(this, new FatalEventArgs(
                         ExceptionType.SEND_FAILED, e));
                     throw;
@@ -415,11 +454,13 @@ namespace equalizer_connect_universal
         /// a connection has been establed by Connect().
         /// <param name="sender">The listener that accepted the connection.</param>
         /// <param name="args">Parameters associated with the accepted connection.</param>
+        /// <param name="activeListeningID">The ID associated with the <see cref="activeListenerIDs"/> dict</param>
         /// <param name="numAttempts">The number of times listening for messages has already been tried</param>
         /// </summary>
         private async void ListenForMessages(
             StreamSocketListener sender,
             StreamSocketListenerConnectionReceivedEventArgs args,
+            int activeListeningID,
             int numAttempts = 0)
         {
             PrintLine();
@@ -427,25 +468,14 @@ namespace equalizer_connect_universal
             // check the number of attempts made
             if (numAttempts >= MAX_LISTEN_ATTEMPTS)
             {
-                var e = new TimeoutException("Too many attempts to connect to remote server");
+                var e = new TimeoutException("Too many attempts to listen for messages from remote server");
                 FatalException(this, new FatalEventArgs(
                     ExceptionType.CONNECTION_NOT_ESTABLISHED, e));
                 throw e;
             }
 
-            // get the data reader object
-            DataReader reader = null;
-            if (_dataReader == null && args != null)
-            {
-                reader = new DataReader(args.Socket.InputStream);
-            }
-            else
-            {
-                reader = _dataReader;
-            }
-
             // check that the reader exists
-            if (reader == null)
+            if (_dataReader == null)
             {
                 var e = new NullReferenceException("reader doesn't exist for socket");
                 FatalException(this, new FatalEventArgs(
@@ -453,12 +483,13 @@ namespace equalizer_connect_universal
                 throw e;
             }
 
+            // continue listening for incoming messages for forever!
             while (true)
             {
                 try
                 {
                     // Read first 4 bytes (length of the subsequent string).
-                    uint sizeFieldCount = await reader.LoadAsync(sizeof(uint));
+                    uint sizeFieldCount = await _dataReader.LoadAsync(sizeof(uint));
                     if (sizeFieldCount != sizeof(uint))
                     {
                         // The underlying socket was closed before we were able to read the whole data.
@@ -467,8 +498,8 @@ namespace equalizer_connect_universal
                     }
 
                     // Read the string.
-                    uint stringLength = reader.ReadUInt32();
-                    uint actualStringLength = await reader.LoadAsync(stringLength);
+                    uint stringLength = _dataReader.ReadUInt32();
+                    uint actualStringLength = await _dataReader.LoadAsync(stringLength);
                     if (stringLength != actualStringLength)
                     {
                         // The underlying socket was closed before we were able to read the whole data.
@@ -477,7 +508,7 @@ namespace equalizer_connect_universal
                     }
 
                     // Tell the main program that a message has been received, and what that message is
-                    string m = reader.ReadString(actualStringLength);
+                    string m = _dataReader.ReadString(actualStringLength);
                     if (MessageReceived != null)
                     {
                         System.Diagnostics.Debug.WriteLine(String.Format("<< {0} [{1}]", m, numAttempts));
@@ -486,12 +517,27 @@ namespace equalizer_connect_universal
                 }
                 catch (Exception e)
                 {
-                    // If this is an unknown status it means that the error is fatal and retry will likely fail.
-                    if (SocketError.GetStatus(e.HResult) == SocketErrorStatus.Unknown)
+                    // check if I should stop listening
+                    if (activeListenerIDs[activeListeningID] == false)
                     {
+                        return;
+                    }
+
+                    if (e.Message == CONNECTION_CLOSED_REMOTELY)
+                    {
+                        // close the socket
+                        Close();
+                        SocketClosed(this, new SocketClosedEventArgs(this));
+                        NonFatalException(this, new FatalEventArgs(
+                            ExceptionType.RECEIVE_FAILED, e));
+                        return;
+                    }
+                    else if (SocketError.GetStatus(e.HResult) == SocketErrorStatus.Unknown)
+                    {
+                        // If this is an unknown status it means that the error is fatal and retry will likely fail.
                         FatalException(this, new FatalEventArgs(
                             ExceptionType.RECEIVE_FAILED, e));
-                        throw e;
+                        return;
                     }
                     else
                     {
@@ -499,7 +545,7 @@ namespace equalizer_connect_universal
                             ExceptionType.RECEIVE_FAILED, e));
 
                         // attempt to continue listening
-                        ListenForMessages(sender, args, numAttempts + 1);
+                        ListenForMessages(sender, args, activeListeningID, numAttempts + 1);
                     }
                 }
             }

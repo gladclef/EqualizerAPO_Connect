@@ -32,7 +32,7 @@ namespace equalizer_connect_universal
 
         #endregion
 
-        #region private methods
+        #region private/protected methods
 
         /// <summary>
         /// Load the IPv4 address used last time a connection was tried.
