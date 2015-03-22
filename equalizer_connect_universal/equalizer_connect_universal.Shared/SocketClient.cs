@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Collections.Generic;
@@ -37,6 +38,8 @@ namespace equalizer_connect_universal
         public const string CONNECTION_ABORTED = "ConnectionAborted";
         public const string CONNECTION_RESET = "ConnectionReset";
         public const string CONNECTION_CLOSED_REMOTELY = "An existing connection was forcibly closed by the remote host.";
+        public const string INIT_MESSAGE = "ALLIGN_ME";
+        public const string INIT_MESSAGE_END = "BEGIN_TRANSMISSION";
 
         // exception types
         public enum ExceptionType { CONNECTION_NOT_ESTABLISHED, HOSTNAME_INVALID,
@@ -483,6 +486,9 @@ namespace equalizer_connect_universal
                 throw e;
             }
 
+            // makes sure bytes are properly aligned
+            await AlignIncomingMessages();
+
             // continue listening for incoming messages for forever!
             while (true)
             {
@@ -490,15 +496,20 @@ namespace equalizer_connect_universal
                 {
                     // Read first 4 bytes (length of the subsequent string).
                     uint sizeFieldCount = await _dataReader.LoadAsync(sizeof(uint));
+                    //System.Diagnostics.Debug.WriteLine(sizeFieldCount);
                     if (sizeFieldCount != sizeof(uint))
                     {
                         // The underlying socket was closed before we were able to read the whole data.
                         SocketClosed(this, new SocketClosedEventArgs(this));
                         return;
                     }
-
+                    
                     // Read the string.
-                    uint stringLength = _dataReader.ReadUInt32();
+                    byte[] stringLengthBytes = new byte[sizeof(uint)];
+                    _dataReader.ReadBytes(stringLengthBytes);
+                    uint stringLength = BitConverter.ToUInt32(stringLengthBytes, 0);
+                    System.Diagnostics.Debug.WriteLine(String.Format("{0} [{1}, {2}, {3}, {4}]",
+                        stringLength, stringLengthBytes[0], stringLengthBytes[1], stringLengthBytes[2], stringLengthBytes[3]));
                     uint actualStringLength = await _dataReader.LoadAsync(stringLength);
                     if (stringLength != actualStringLength)
                     {
@@ -507,9 +518,14 @@ namespace equalizer_connect_universal
                         return;
                     }
 
-                    // Tell the main program that a message has been received, and what that message is
-                    string m = _dataReader.ReadString(actualStringLength);
+                    // retrieve and parse the message
+                    int byteCount = Encoding.UTF8.GetBytes(new String((char) 1, (int)stringLength)).Length;
+                    byte[] messageBytes = new byte[byteCount];
+                    _dataReader.ReadBytes(messageBytes);
+                    string m = Encoding.UTF8.GetString(messageBytes, 0, byteCount);
                     System.Diagnostics.Debug.WriteLine(m);
+
+                    // Tell the main program that a message has been received, and what that message is
                     if (MessageReceived != null)
                     {
                         System.Diagnostics.Debug.WriteLine(String.Format("<< {0} [{1}]", m, numAttempts));
@@ -550,6 +566,82 @@ namespace equalizer_connect_universal
                     }
                 }
             }
+        }
+
+        /// <summary>
+        /// Because of stupid stupidness the bytes aren't coming in properly
+        /// aligned. This function is used to align the bytes with each new
+        /// connection.
+        /// </summary>
+        /// <returns>True if alignment succeeds, false otherwise</returns>
+        private async Task<bool> AlignIncomingMessages(bool checkForEndMessage = false)
+        {
+            string message = checkForEndMessage ? INIT_MESSAGE_END : INIT_MESSAGE;
+            byte[] byteRep = Encoding.UTF8.GetBytes(message);
+            Queue<byte> buffer = new Queue<byte>();
+
+            // debugging purposes
+            uint byteIndex = 0;
+            StringBuilder sb = new StringBuilder();
+            sb.Append("[");
+
+            // read in the next byte until the alignment string is found
+            while (true)
+            {
+                // load the next byte into the buffer
+                await _dataReader.LoadAsync(1);
+                byte thisByte = _dataReader.ReadByte();
+                buffer.Enqueue(thisByte);
+                byteIndex++;
+
+                // debugging and error checking
+                sb.Append(thisByte.ToString());
+                if (byteIndex % 8 == 0)
+                {
+                    sb.Append("]\n[");
+                }
+                else if (byteIndex > byteRep.Length * 3)
+                {
+                    return false;
+                }
+                else
+                {
+                    sb.Append(", ");
+                }
+
+                // there's a chance the buffer now matches the alignment string
+                if (buffer.Count == byteRep.Length)
+                {
+                    // get the string representation of the buffer to
+                    // compare to INIT_MESSAGE
+                    byte[] byteBuffer = buffer.ToArray();
+                    string msg = Encoding.UTF8.GetString(
+                        byteBuffer, 0, byteBuffer.Length);
+
+                    // does the string match? Allignment successful!
+                    if (msg == message)
+                    {
+                        break;
+                    }
+                    else
+                    {
+                        // take out the trash
+                        buffer.Dequeue();
+                    }
+                }
+            }
+
+            // debugging
+            sb.Append("]");
+            System.Diagnostics.Debug.WriteLine(sb.ToString());
+            System.Diagnostics.Debug.WriteLine(message);
+
+            if (!checkForEndMessage)
+            {
+                return await AlignIncomingMessages(true);
+            }
+
+            return true;
         }
 
         #endregion
@@ -626,6 +718,7 @@ namespace equalizer_connect_universal
             [System.Runtime.CompilerServices.CallerFilePath] string sourceFilePath = "",
             [System.Runtime.CompilerServices.CallerMemberName] string memberName = "")
         {
+            return;
             System.Diagnostics.Debug.WriteLine(line + ":SC:" + memberName);
         }
     }
