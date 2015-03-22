@@ -509,6 +509,7 @@ namespace equalizer_connect_universal
 
                     // Tell the main program that a message has been received, and what that message is
                     string m = _dataReader.ReadString(actualStringLength);
+                    System.Diagnostics.Debug.WriteLine(m);
                     if (MessageReceived != null)
                     {
                         System.Diagnostics.Debug.WriteLine(String.Format("<< {0} [{1}]", m, numAttempts));

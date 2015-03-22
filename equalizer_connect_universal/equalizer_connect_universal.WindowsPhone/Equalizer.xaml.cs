@@ -383,8 +383,10 @@ namespace equalizer_connect_universal
 
         private void HardwareButtons_BackPressed(object sender, Windows.Phone.UI.Input.BackPressedEventArgs e)
         {
-            Close();
-            Application.Current.Exit();
+            if (Frame.CurrentSourcePageType == this.GetType()) {
+                Close();
+                Frame.Navigate(typeof(ConnectToServer));
+            }
         }
 
         private void MessageReceived(object sender, EventArgs args)
