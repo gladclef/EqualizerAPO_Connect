@@ -204,6 +204,9 @@ namespace equalizer_connect_universal
             PrintLine();
             InitializeComponent();
 
+            // close everything if navigating away from this page
+            Windows.Phone.UI.Input.HardwareButtons.BackPressed += HardwareButtons_BackPressed;
+
             // set min/max on volume and attach event handlers
             slider_volume.Minimum = -EqualizerManager.MAX_PREAMP_GAIN;
             slider_volume.Maximum = EqualizerManager.MAX_PREAMP_GAIN;
@@ -274,9 +277,21 @@ namespace equalizer_connect_universal
             PrintLine();
             connection.Close();
             filterManager.Close();
-            filterChangedTimer.Stop();
-            updateScrollTimer.Stop();
-            checkScrollTimer.Stop();
+            try
+            {
+                filterChangedTimer.Stop();
+            }
+            catch (Exception) { }
+            try
+            {
+                updateScrollTimer.Stop();
+            }
+            catch (Exception) { }
+            try
+            {
+                checkScrollTimer.Stop();
+            }
+            catch (Exception) { }
             filterSliders.Clear();
             filterTextboxes.Clear();
             scrollValues.Clear();
@@ -365,6 +380,12 @@ namespace equalizer_connect_universal
         #endregion
 
         #region private methods
+
+        private void HardwareButtons_BackPressed(object sender, Windows.Phone.UI.Input.BackPressedEventArgs e)
+        {
+            Close();
+            Application.Current.Exit();
+        }
 
         private void MessageReceived(object sender, EventArgs args)
         {
@@ -1171,6 +1192,11 @@ namespace equalizer_connect_universal
         private void checkbox_apply_equalizer_Checked(object sender, RoutedEventArgs e)
         {
             PrintLine();
+            if (connection == null)
+            {
+                return;
+            }
+
             // send message
             connection.Send(messageParser.CreateMessage(
                 MessageParser.MESSAGE_TYPE.FILTER_APPLY), true);

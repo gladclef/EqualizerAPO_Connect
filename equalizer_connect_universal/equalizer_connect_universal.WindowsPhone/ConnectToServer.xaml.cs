@@ -28,11 +28,20 @@ namespace equalizer_connect_universal
         {
             InitializeComponent();
             LoadIPAddress();
+
+            // close upon leaving this app
+            Windows.Phone.UI.Input.HardwareButtons.BackPressed += HardwareButtons_BackPressed;
         }
 
         #endregion
 
         #region private/protected methods
+
+        private void HardwareButtons_BackPressed(object sender, Windows.Phone.UI.Input.BackPressedEventArgs e)
+        {
+            Connection.GetInstance().Close();
+            Application.Current.Exit();
+        }
 
         /// <summary>
         /// Load the IPv4 address used last time a connection was tried.
@@ -81,9 +90,6 @@ namespace equalizer_connect_universal
                 hostname,
                 port));
 
-            // wait, to allow the interface time to update
-            sleeper.WaitOne(1000);
-
             // try the connection
             string success = await connection.Connect(hostname, port);
             if (String.IsNullOrEmpty(success) ||
@@ -96,13 +102,9 @@ namespace equalizer_connect_universal
                 Log(success);
             }
 
-            // wait, to allow the interface time to update
-            sleeper.WaitOne(1000);
-
             // was successful? continue!
             if (success == SocketClient.SUCCESS)
             {
-                return;
                 sleeper.WaitOne(1000);
                 Frame.Navigate(typeof(Equalizer));
             }
