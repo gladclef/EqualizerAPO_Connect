@@ -176,12 +176,13 @@ namespace equalizer_connect_universal
             {
                 await currentSocketClient.Send(data);
             }
-            catch (TimeoutException)
-            {
-                return CANT_CONNECT;
-            }
             catch (Exception e)
             {
+                if (e is TimeoutException ||
+                    e is NullReferenceException)
+                {
+                    return CANT_CONNECT;
+                }
                 return e.Message;
             }
             finally
@@ -230,7 +231,7 @@ namespace equalizer_connect_universal
             var args = (e as SocketClient.FatalEventArgs);
             System.Diagnostics.Debug.WriteLine(args.exception.Message);
             System.Diagnostics.Debug.WriteLine(args.exception.StackTrace);
-            // TODO: anything here?
+            currentSocketClient.Close();
         }
 
         private void SocketDisconnected(object sender, object e)

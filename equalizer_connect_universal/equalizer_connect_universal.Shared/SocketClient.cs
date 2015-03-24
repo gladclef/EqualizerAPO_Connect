@@ -350,8 +350,11 @@ namespace equalizer_connect_universal
             _socket = newSocket;
             _dataWriter = new DataWriter(_socket.OutputStream);
             _dataReader = new DataReader(_socket.InputStream);
-            ListenForMessages(null, null, activeListenerIDs.Count);
             activeListenerIDs.Add(activeListenerIDs.Count, true);
+
+            // send/receive the alignment messages and
+            // listen for incoming messages
+            ListenForMessages(null, null, activeListenerIDs.Count - 1);
 
             PrintLine();
             System.Diagnostics.Debug.WriteLine("new socket: " + newSocket);
@@ -474,7 +477,7 @@ namespace equalizer_connect_universal
                 var e = new TimeoutException("Too many attempts to listen for messages from remote server");
                 FatalException(this, new FatalEventArgs(
                     ExceptionType.CONNECTION_NOT_ESTABLISHED, e));
-                throw e;
+                return;
             }
 
             // check that the reader exists
@@ -483,16 +486,22 @@ namespace equalizer_connect_universal
                 var e = new NullReferenceException("reader doesn't exist for socket");
                 FatalException(this, new FatalEventArgs(
                     ExceptionType.RECEIVE_FAILED, e));
-                throw e;
+                return;
             }
 
-            // makes sure bytes are properly aligned
-            await AlignIncomingMessages();
-
-            // continue listening for incoming messages for forever!
-            while (true)
+            try
             {
-                try
+                // send alignment message
+                string alignmentMessage =
+                    INIT_MESSAGE + INIT_MESSAGE + INIT_MESSAGE + INIT_MESSAGE_END;
+                _dataWriter.WriteBytes(Encoding.UTF8.GetBytes(alignmentMessage));
+                await _dataWriter.StoreAsync();
+
+                // makes sure bytes are properly aligned
+                await AlignIncomingMessages();
+
+                // continue listening for incoming messages for forever!
+                while (true)
                 {
                     // Read first 4 bytes (length of the subsequent string).
                     uint sizeFieldCount = await _dataReader.LoadAsync(sizeof(uint));
@@ -508,8 +517,6 @@ namespace equalizer_connect_universal
                     byte[] stringLengthBytes = new byte[sizeof(uint)];
                     _dataReader.ReadBytes(stringLengthBytes);
                     uint stringLength = BitConverter.ToUInt32(stringLengthBytes, 0);
-                    System.Diagnostics.Debug.WriteLine(String.Format("{0} [{1}, {2}, {3}, {4}]",
-                        stringLength, stringLengthBytes[0], stringLengthBytes[1], stringLengthBytes[2], stringLengthBytes[3]));
                     uint actualStringLength = await _dataReader.LoadAsync(stringLength);
                     if (stringLength != actualStringLength)
                     {
@@ -523,7 +530,6 @@ namespace equalizer_connect_universal
                     byte[] messageBytes = new byte[byteCount];
                     _dataReader.ReadBytes(messageBytes);
                     string m = Encoding.UTF8.GetString(messageBytes, 0, byteCount);
-                    System.Diagnostics.Debug.WriteLine(m);
 
                     // Tell the main program that a message has been received, and what that message is
                     if (MessageReceived != null)
@@ -532,38 +538,39 @@ namespace equalizer_connect_universal
                         MessageReceived(this, new MessageReceivedEventArgs(m));
                     }
                 }
-                catch (Exception e)
+            }
+            catch (Exception e)
+            {
+                // check if I should stop listening
+                if (activeListenerIDs[activeListeningID] == false)
                 {
-                    // check if I should stop listening
-                    if (activeListenerIDs[activeListeningID] == false)
-                    {
-                        return;
-                    }
+                    return;
+                }
 
-                    if (e.Message == CONNECTION_CLOSED_REMOTELY)
-                    {
-                        // close the socket
-                        Close();
-                        SocketClosed(this, new SocketClosedEventArgs(this));
-                        NonFatalException(this, new FatalEventArgs(
-                            ExceptionType.RECEIVE_FAILED, e));
-                        return;
-                    }
-                    else if (SocketError.GetStatus(e.HResult) == SocketErrorStatus.Unknown)
-                    {
-                        // If this is an unknown status it means that the error is fatal and retry will likely fail.
-                        FatalException(this, new FatalEventArgs(
-                            ExceptionType.RECEIVE_FAILED, e));
-                        return;
-                    }
-                    else
-                    {
-                        NonFatalException(this, new NonFatalEventArgs(
-                            ExceptionType.RECEIVE_FAILED, e));
+                if (e.Message == CONNECTION_CLOSED_REMOTELY ||
+                    e is NullReferenceException)
+                {
+                    // close the socket
+                    Close();
+                    SocketClosed(this, new SocketClosedEventArgs(this));
+                    NonFatalException(this, new FatalEventArgs(
+                        ExceptionType.RECEIVE_FAILED, e));
+                    return;
+                }
+                else if (SocketError.GetStatus(e.HResult) == SocketErrorStatus.Unknown)
+                {
+                    // If this is an unknown status it means that the error is fatal and retry will likely fail.
+                    FatalException(this, new FatalEventArgs(
+                        ExceptionType.RECEIVE_FAILED, e));
+                    return;
+                }
+                else
+                {
+                    NonFatalException(this, new NonFatalEventArgs(
+                        ExceptionType.RECEIVE_FAILED, e));
 
-                        // attempt to continue listening
-                        ListenForMessages(sender, args, activeListeningID, numAttempts + 1);
-                    }
+                    // attempt to continue listening
+                    ListenForMessages(sender, args, activeListeningID, numAttempts + 1);
                 }
             }
         }
@@ -633,9 +640,8 @@ namespace equalizer_connect_universal
 
             // debugging
             sb.Append("]");
-            System.Diagnostics.Debug.WriteLine(sb.ToString());
-            System.Diagnostics.Debug.WriteLine(message);
 
+            // look for the go ahead message that indicates tranceiving is about to begin
             if (!checkForEndMessage)
             {
                 return await AlignIncomingMessages(true);
