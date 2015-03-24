@@ -1,5 +1,5 @@
 # EqualizerAPO_Connect
-App for windows phone 8.1 to connect to the [https://github.com/gladclef/EqualizerAPO](EqualizerAPO desktop program).
+App for windows phone 8.1 to connect to the [EqualizerAPO desktop program](https://github.com/gladclef/EqualizerAPO).
 
 Created so that the settings for the desktop program can be adjusted from a remote location (like the center of the dance floor instead of the stage where the computer is).
 
