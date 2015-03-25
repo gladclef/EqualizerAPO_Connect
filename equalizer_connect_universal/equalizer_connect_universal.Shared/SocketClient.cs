@@ -38,6 +38,8 @@ namespace equalizer_connect_universal
         public const string CONNECTION_ABORTED = "ConnectionAborted";
         public const string CONNECTION_RESET = "ConnectionReset";
         public const string CONNECTION_CLOSED_REMOTELY = "An existing connection was forcibly closed by the remote host.";
+
+        // used to align the bytes at the beggining of a new connection
         public const string INIT_MESSAGE = "ALLIGN_ME";
         public const string INIT_MESSAGE_END = "BEGIN_TRANSMISSION";
 
