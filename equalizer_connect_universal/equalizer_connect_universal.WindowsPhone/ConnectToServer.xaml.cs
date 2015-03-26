@@ -9,6 +9,9 @@ namespace equalizer_connect_universal
     {
         #region constants/fields
 
+        /// <summary>
+        /// Key to the last address used to connect to a computer.
+        /// </summary>
         public const string LAST_ADDRESS = "last loaded ipaddress";
 
         /// <summary>
@@ -37,6 +40,13 @@ namespace equalizer_connect_universal
 
         #region private/protected methods
 
+        /// <summary>
+        /// Closes all connections and exits the application upon back button press,
+        /// because that apparently isn't a thing that WP apps do automatically
+        /// anymore.
+        /// </summary>
+        /// <param name="sender">The phone, I guess? N/A</param>
+        /// <param name="e">N/A</param>
         private void HardwareButtons_BackPressed(object sender, Windows.Phone.UI.Input.BackPressedEventArgs e)
         {
             if (Frame.CurrentSourcePageType == this.GetType())
