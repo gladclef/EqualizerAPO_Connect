@@ -88,7 +88,7 @@ namespace equalizer_connect_universal
 
             // save the hostname for next time
             SavedData sd = SavedData.GetInstance();
-            sd.SaveStringValue(LAST_ADDRESS, hostname);
+            sd.SaveValue(LAST_ADDRESS, hostname);
 
             // attempt to connect
             AttemptConnection(hostname, port);
