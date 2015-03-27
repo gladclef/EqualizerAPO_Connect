@@ -193,12 +193,20 @@ namespace equalizer_connect_universal
 
         #region public methods
 
+        /// <summary>
+        /// Create a new instance of this class.
+        /// Calls <see cref="Init"/>.
+        /// </summary>
         public Equalizer()
         {
             PrintLine();
             Init();
         }
 
+        /// <summary>
+        /// Initialize all local fields, subscribe to events, and
+        /// set the flag <see cref="initCalled"/> to 1.
+        /// </summary>
         public void Init()
         {
             PrintLine();
@@ -245,9 +253,9 @@ namespace equalizer_connect_universal
             filterChangedTimer.Tick += UpdateFilterTextBoxes;
 
             // get updates from the filters
-            filterManager.filterAddedEvent += UpdateFilter;
-            filterManager.filterRemovedEvent += UpdateFilter;
-            filterManager.filterChangedEvent += UpdateFilter;
+            filterManager.filterAddedEvent += UpdateFilters;
+            filterManager.filterRemovedEvent += UpdateFilters;
+            filterManager.filterChangedEvent += UpdateFilters;
             filterManager.volumeChangedEvent += UpdateVolume;
             filterManager.equalizerAppliedEvent += UpdateIsEqualizerApplied;
 
@@ -259,6 +267,9 @@ namespace equalizer_connect_universal
             initCalled = true;
         }
 
+        /// <summary>
+        /// Calls <see cref="Close"/> when destroyed.
+        /// </summary>
         ~Equalizer()
         {
             PrintLine();
@@ -272,6 +283,11 @@ namespace equalizer_connect_universal
             }
         }
 
+        /// <summary>
+        /// Ends all connections, timers, clears out all collections,
+        /// unselects the slider, closes all composing objects, and
+        /// sets <see cref="initCalled"/> to 0.
+        /// </summary>
         public void Close()
         {
             PrintLine();
@@ -301,18 +317,11 @@ namespace equalizer_connect_universal
             initCalled = false;
         }
 
-        public void TrackChanged()
-        {
-            PrintLine();
-            foreach (KeyValuePair<double, Filter> pair in filterManager.Filters)
-            {
-                pair.Value.IsLocked = true;
-                int oldSelected = SelectedSliderIndex;
-                SelectedSliderIndex = -1;
-                SelectedSliderIndex = oldSelected;
-            }
-        }
-
+        /// <summary>
+        /// Updates the nice rectangle on the graphical representation of
+        /// the filters so that it fits over the sliders actually being
+        /// displayed.
+        /// </summary>
         public void UpdateGraphicalRepresentationBorder()
         {
             PrintLine();
@@ -354,6 +363,10 @@ namespace equalizer_connect_universal
 
         #region protected methods
 
+        /// <summary>
+        /// Calls <see cref="Init"/> if <see cref="initCalled"/> = 0.
+        /// </summary>
+        /// <param name="e">Passed along to the base method.</param>
         protected override void OnNavigatedTo(NavigationEventArgs e)
         {
             PrintLine();
@@ -364,12 +377,10 @@ namespace equalizer_connect_universal
             }
         }
 
-        protected override void OnNavigatingFrom(NavigatingCancelEventArgs e)
-        {
-            PrintLine();
-            base.OnNavigatingFrom(e);
-        }
-
+        /// <summary>
+        /// Calls <see cref="Close"/>.
+        /// </summary>
+        /// <param name="e">Passed to the base method.</param>
         protected override void OnNavigatedFrom(NavigationEventArgs e)
         {
             PrintLine();
@@ -381,14 +392,39 @@ namespace equalizer_connect_universal
 
         #region private methods
 
+        /// <summary>
+        /// Go back to the connection page and call <see cref="Close"/>,
+        /// because that's apparently not something WP apps do anymore.
+        /// </summary>
+        /// <param name="sender">The phone? N/A</param>
+        /// <param name="e">N/A</param>
         private void HardwareButtons_BackPressed(object sender, Windows.Phone.UI.Input.BackPressedEventArgs e)
         {
-            if (Frame.CurrentSourcePageType == this.GetType()) {
+            if (Frame.CurrentSourcePageType == this.GetType() &&
+                !e.Handled)
+            {
+                e.Handled = true;
                 Close();
-                Frame.Navigate(typeof(ConnectToServer));
+                if (Frame.CanGoBack)
+                {
+                    Frame.GoBack();
+                }
+                else
+                {
+                    Frame.Navigate(typeof(ConnectToServer));
+                }
             }
         }
 
+        /// <summary>
+        /// Callback for <see cref="Connection.MessageRecievedEvent"/>.
+        /// If <see cref="IsTouchActive"/> is false, then
+        /// handles the message in <see cref="MessageParser.ParseMessage"/>.
+        /// </summary>
+        /// <param name="sender">N/A</param>
+        /// <param name="args">A Connection.MessageReceivedEventArgs object</param>
+        /// <seealso cref="LayoutRoot_MouseEnter"/>
+        /// <seealso cref="LayoutRoot_MouseLeave"/>
         private void MessageReceived(object sender, EventArgs args)
         {
             PrintLine();
@@ -396,11 +432,16 @@ namespace equalizer_connect_universal
             {
                 return;
             }
-            Connection.MessageReceivedEventArgs mrev =
-                (Connection.MessageReceivedEventArgs)args;
+            var mrev = (Connection.MessageReceivedEventArgs)args;
             messageParser.ParseMessage(mrev.message);
         }
 
+        /// <summary>
+        /// Callback for <see cref="Connection.DisconnectedEvent"/>.
+        /// Navigates back a frame.
+        /// </summary>
+        /// <param name="sender">N/A</param>
+        /// <param name="args">N/A</param>
         private void Disconnected(object sender, EventArgs args)
         {
             PrintLine();
@@ -414,37 +455,37 @@ namespace equalizer_connect_universal
             }
         }
 
+        /// <summary>
+        /// Callback for <see cref="Connection.DisconnectMe"/>.
+        /// Calls <see cref="Connection.SideDisconnect"/>.
+        /// </summary>
+        /// <param name="sender">N/A</param>
+        /// <param name="args">N/A</param>
         private void ConnectionSideDisconnect(object sender, EventArgs args)
         {
             PrintLine();
             connection.SideDisconnect();
         }
 
+        /// <summary>
+        /// Callback for <see cref="EqualizerManager.TrackChangedEvent"/>.
+        /// Updates the displayed artist/track title.
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="args">A Track.TrackChangedEventArgs object.</param>
         private void UpdateTrackname(object sender, object args)
         {
             PrintLine();
-            Track.TrackChangedEventArgs targs =
-                args as Track.TrackChangedEventArgs;
-            // TODO: remove
-            // System.Diagnostics.Debug.WriteLine("UpdateTrackname [" + targs.property + ":" + targs.newValue + "], " + currentTrack.Artist + ", " + currentTrack.Title);
+            var targs = args as Track.TrackChangedEventArgs;
             textblock_now_playing.Text =
                 "Now Playing: " +
                 equalizerManager.CurrentTrack.Artist + " - " +
                 equalizerManager.CurrentTrack.Title;
         }
 
-        private void UpdateFilters(object sender, EventArgs args)
-        {
-            PrintLine();
-            int[] allIndices = new int[filterSliders.Count];
-            for (int i = 0; i < allIndices.Length; i++)
-            {
-                allIndices[i] = i;
-            }
-            UpdateFilter(sender, new FilterManager.FilterEventArgs(
-                allIndices));
-        }
-
+        /// <summary>
+        /// Removes sliders until the number of sliders matches the number of filters.
+        /// </summary>
         private void RemoveSliders()
         {
             PrintLine();
@@ -462,6 +503,9 @@ namespace equalizer_connect_universal
             }
         }
 
+        /// <summary>
+        /// Adds sliders until the number of sliders matches the number of filters.
+        /// </summary>
         private void AddSliders()
         {
             PrintLine();
@@ -520,7 +564,13 @@ namespace equalizer_connect_universal
             }
         }
 
-        private void UpdateFilter(object sender, EventArgs args)
+        /// <summary>
+        /// Matches the sliders to the filters and their gains, and
+        /// updates the graphical representation of the filters.
+        /// </summary>
+        /// <param name="sender">N/A</param>
+        /// <param name="args">A FilterManager.FilterEventArgs object</param>
+        private void UpdateFilters(object sender, EventArgs args)
         {
             PrintLine();
             SortedDictionary<double, Filter> filters = filterManager.Filters;
@@ -531,8 +581,7 @@ namespace equalizer_connect_universal
             UpdateGraphicalRepresentation();
 
             // get the arguments
-            FilterManager.FilterEventArgs filterArgs =
-                args as FilterManager.FilterEventArgs;
+            var filterArgs = args as FilterManager.FilterEventArgs;
 
             int index = -1;
             foreach (KeyValuePair<double, Filter> pair in filters)
@@ -559,6 +608,10 @@ namespace equalizer_connect_universal
             }
         }
 
+        /// <summary>
+        /// Updates the textbox for the volume slider with the
+        /// correct gain value.
+        /// </summary>
         private void UpdateVolumeTextbox()
         {
             PrintLine();
@@ -607,6 +660,12 @@ namespace equalizer_connect_universal
             }
         }
 
+        /// <summary>
+        /// Callback for <see cref="FilterManager.volumeChangedEvent"/>.
+        /// Updates the value of the volume slider to match the new gain value.
+        /// </summary>
+        /// <param name="sender">N/A</param>
+        /// <param name="args">N/A</param>
         private void UpdateVolume(object sender, EventArgs args)
         {
             PrintLine();
@@ -618,6 +677,12 @@ namespace equalizer_connect_universal
             }
         }
 
+        /// <summary>
+        /// Callback for <see cref="EqualizerManager.PlaybackUpdatedEvent"/>.
+        /// Changes which playback button is visible (playing or paused?).
+        /// </summary>
+        /// <param name="sender">N/A</param>
+        /// <param name="args">N/A</param>
         private void UpdatePlayback(object sender, object args)
         {
             PrintLine();
@@ -641,6 +706,12 @@ namespace equalizer_connect_universal
             }
         }
 
+        /// <summary>
+        /// Callback for <see cref="FilterManager.equalizerAppliedEvent"/>.
+        /// Checks the "apply filter" checkbox or unchecks it.
+        /// </summary>
+        /// <param name="sender">N/A</param>
+        /// <param name="args">N/A</param>
         private void UpdateIsEqualizerApplied(object sender, EventArgs args)
         {
             PrintLine();
@@ -648,12 +719,22 @@ namespace equalizer_connect_universal
                 filterManager.IsEqualizerApplied;
         }
 
+        /// <summary>
+        /// Gets a brush by name from the Application resources.
+        /// </summary>
+        /// <param name="brushName">Eg: "PhoneAccentBrush"</param>
+        /// <returns>A new SolidColorBrush with the associated color.</returns>
         private static SolidColorBrush GetBrush(string brushName)
         {
             PrintLine();
             return new SolidColorBrush((Application.Current.Resources[brushName] as SolidColorBrush).Color);
         }
 
+        /// <summary>
+        /// Gets the filter index that the given slider corresponds to.
+        /// </summary>
+        /// <param name="slider">The slider</param>
+        /// <returns>The index, or -1 if not found.</returns>
         private int GetSliderIndex(Slider slider)
         {
             PrintLine();
@@ -673,6 +754,14 @@ namespace equalizer_connect_universal
             return index;
         }
 
+        /// <summary>
+        /// Callback for the <see cref="updateScrollTimer"/>.
+        /// Updates the position of the sliders scrollviewer and the
+        /// background rectangle that highlights the selected slider.
+        /// </summary>
+        /// <param name="sender">N/A</param>
+        /// <param name="args">N/A</param>
+        /// <seealso cref="scrollValues"/>
         private void UpdateScrollPosition(object sender, object args)
         {
             PrintLine();
@@ -708,6 +797,11 @@ namespace equalizer_connect_universal
             scrollValues["iteration"] += 1;
         }
 
+        /// <summary>
+        /// Given a string that has a double value in it, get the represented double value.
+        /// </summary>
+        /// <param name="text">The string to match.</param>
+        /// <returns>The double, or NaN upon failure.</returns>
         private double GetDoubleFromText(string text)
         {
             System.Text.RegularExpressions.Regex numMatch =
@@ -721,6 +815,11 @@ namespace equalizer_connect_universal
             return Convert.ToDouble(match.Value);
         }
 
+        /// <summary>
+        /// Updates the gain of the associated filter if
+        /// the gain has actually changed and the filter isn't locked.
+        /// </summary>
+        /// <param name="textBox">The textbox that whose value has changed.</param>
         private void TextBoxTextChanged(TextBox textBox)
         {
             PrintLine();
@@ -758,7 +857,7 @@ namespace equalizer_connect_universal
             if (filter.IsLocked)
             {
                 // change value back
-                UpdateFilter(this,
+                UpdateFilters(this,
                     new FilterManager.FilterEventArgs(new int[] { index }));
             }
             else
@@ -768,6 +867,12 @@ namespace equalizer_connect_universal
             }
         }
 
+        /// <summary>
+        /// Updates the graphical representation of filters, so that
+        /// the number of rectangles and their heights matches the number of
+        /// filters and their gains, respectively.
+        /// Calls <see cref="UpdateGraphicalRepresentationBorder"/>.
+        /// </summary>
         private void UpdateGraphicalRepresentation()
         {
             PrintLine();
@@ -847,6 +952,14 @@ namespace equalizer_connect_universal
             }
         }
 
+        /// <summary>
+        /// Callback for the <see cref="checkScrollTimer"/>.
+        /// If the filters scrollviewer scroll value has changed, then
+        /// update the graphical representation of the filters.
+        /// </summary>
+        /// <param name="sender">N/A</param>
+        /// <param name="args">N/A</param>
+        /// <seealso cref="UpdateGraphicalRepresentation"/>
         private void CheckScrolled(object sender, object args)
         {
             PrintLine();
@@ -861,6 +974,12 @@ namespace equalizer_connect_universal
             }
         }
 
+        /// <summary>
+        /// Adjusts the horizontal scroll of the filters scrollviewer to
+        /// move to the same position as is being scrolled to on the
+        /// graphical representation, currently being used as a region selector.
+        /// </summary>
+        /// <param name="p">The physical point that was tapped on the grid.</param>
         private void grid_graphical_representation_MoveScrollViewer(Point p)
         {
             PrintLine();
@@ -883,7 +1002,6 @@ namespace equalizer_connect_universal
                 scrollWidth / extentWidth,
                 1);
             double width = gwidth * widthPercent;
-            double xPercent = x / gwidth;
             double offsetRange = gwidth - width;
             double offsetLeft = x - (width / 2);
             double offsetPercent = offsetLeft / offsetRange;
@@ -901,6 +1019,11 @@ namespace equalizer_connect_universal
             }
         }
 
+        /// <summary>
+        /// Scrolls the filter scrollviewer so that the given filter is in view
+        /// (or at least the slider that corresponds to that filter).
+        /// </summary>
+        /// <param name="filterIndex">The filter you want to show.</param>
         private void ScrollToFilter(int filterIndex)
         {
             // get the scroll to value
@@ -943,6 +1066,11 @@ namespace equalizer_connect_universal
 
         #region ui event handlers
 
+        /// <summary>
+        /// Selects the slider to the left of the currently selected slider.
+        /// </summary>
+        /// <param name="sender">N/A</param>
+        /// <param name="e">N/A</param>
         private void button_filter_prev_Click(object sender, RoutedEventArgs e)
         {
             PrintLine();
@@ -951,6 +1079,11 @@ namespace equalizer_connect_universal
                 0);
         }
 
+        /// <summary>
+        /// Decrease the gain of the currently selected filter by 0.1.
+        /// </summary>
+        /// <param name="sender">N/A</param>
+        /// <param name="e">N/A</param>
         private void button_filter_decrease_Click(object sender, RoutedEventArgs e)
         {
             PrintLine();
@@ -961,6 +1094,11 @@ namespace equalizer_connect_universal
                 true);
         }
 
+        /// <summary>
+        /// Increase the gain of the currently selected filter by 0.1.
+        /// </summary>
+        /// <param name="sender">N/A</param>
+        /// <param name="e">N/A</param>
         private void button_filter_increase_Click(object sender, RoutedEventArgs e)
         {
             PrintLine();
@@ -971,6 +1109,11 @@ namespace equalizer_connect_universal
                 true);
         }
 
+        /// <summary>
+        /// Selects the slider to the right of the currently selected slider.
+        /// </summary>
+        /// <param name="sender">N/A</param>
+        /// <param name="e">N/A</param>
         private void button_filter_next_Click(object sender, RoutedEventArgs e)
         {
             PrintLine();
@@ -979,12 +1122,24 @@ namespace equalizer_connect_universal
                 filterSliders.Count - 1);
         }
 
+        /// <summary>
+        /// Deselects the currently selected filter,
+        /// causing the macro manager buttons to pop back up.
+        /// </summary>
+        /// <param name="sender">N/A</param>
+        /// <param name="e">N/A</param>
         private void button_deselect_filter_Click(object sender, RoutedEventArgs e)
         {
             PrintLine();
             SelectedSliderIndex = -1;
         }
 
+        /// <summary>
+        /// Selects the given slider and brings up the filter micro controls,
+        /// hiding the macro controls.
+        /// </summary>
+        /// <param name="sender">The slider that was tapped</param>
+        /// <param name="args">N/A</param>
         private void slider_filter_Tapped(object sender, TappedRoutedEventArgs args)
         {
             PrintLine();
@@ -1002,6 +1157,11 @@ namespace equalizer_connect_universal
             SelectedSliderIndex = index;
         }
 
+        /// <summary>
+        /// Updates the gain on the volume based on the value of the slider.
+        /// </summary>
+        /// <param name="sender">N/A</param>
+        /// <param name="args">N/A</param>
         private void slider_volume_ValueChanged(object sender, RangeBaseValueChangedEventArgs args)
         {
             PrintLine();
@@ -1023,6 +1183,11 @@ namespace equalizer_connect_universal
                 false);
         }
 
+        /// <summary>
+        /// Updates the gain on the volume based on the value in the textbox.
+        /// </summary>
+        /// <param name="sender">N/A</param>
+        /// <param name="args">N/A</param>
         private void textbox_volume_TextChanged(object sender, TextChangedEventArgs args)
         {
             PrintLine();
@@ -1037,6 +1202,12 @@ namespace equalizer_connect_universal
                 true);
         }
 
+        /// <summary>
+        /// Checks if the key was the enter key. If so, then the gain on the volume
+        /// is updated accordingly.
+        /// </summary>
+        /// <param name="sender">N/A</param>
+        /// <param name="args">A KeyRoutedEventArgs object</param>
         private void textbox_volume_KeyUp(object sender, KeyRoutedEventArgs args)
         {
             PrintLine();
@@ -1050,6 +1221,12 @@ namespace equalizer_connect_universal
             }
         }
 
+        /// <summary>
+        /// Updates the gain on the filter that corresponds to the given slider,
+        /// based on the value of the slider.
+        /// </summary>
+        /// <param name="sender">The slider</param>
+        /// <param name="args">N/A</param>
         private void slider_filter_ValueChanged(object sender, RangeBaseValueChangedEventArgs args)
         {
             PrintLine();
@@ -1092,6 +1269,12 @@ namespace equalizer_connect_universal
             }
         }
 
+        /// <summary>
+        /// Updates the gain on the filter that corresponds to the given textbox,
+        /// based on the value of the textbox.
+        /// </summary>
+        /// <param name="sender">The textbox</param>
+        /// <param name="args">N/A</param>
         private void textbox_filter_TextChanged(object sender, TextChangedEventArgs args)
         {
             PrintLine();
@@ -1113,6 +1296,13 @@ namespace equalizer_connect_universal
                 true);
         }
 
+        /// <summary>
+        /// If the enter key, then
+        /// updates the gain on the filter that corresponds to the given textbox,
+        /// based on the value of the textbox.
+        /// </summary>
+        /// <param name="sender">The textbox</param>
+        /// <param name="args">A KeyRoutedEventArgs object</param>
         private void textbox_filter_KeyUp(object sender, object args)
         {
             PrintLine();
@@ -1138,6 +1328,12 @@ namespace equalizer_connect_universal
             }
         }
 
+        /// <summary>
+        /// Moves the filters scrollviewer to a corresponding horizontal offset.
+        /// </summary>
+        /// <param name="sender">N/A</param>
+        /// <param name="e">Contains the position under the user's thumb.</param>
+        /// <seealso cref="grid_graphical_representation_MoveScrollViewer"/>
         private void grid_graphical_representation_Tap(object sender, TappedRoutedEventArgs e)
         {
             PrintLine();
@@ -1145,6 +1341,12 @@ namespace equalizer_connect_universal
                 e.GetPosition(sender as Grid));
         }
 
+        /// <summary>
+        /// Moves the filters scrollviewer to a corresponding horizontal offset.
+        /// </summary>
+        /// <param name="sender">N/A</param>
+        /// <param name="e">Contains the position under the user's thumb.</param>
+        /// <seealso cref="grid_graphical_representation_MoveScrollViewer"/>
         private void grid_graphical_representation_MouseMove(object sender, DragEventArgs e)
         {
             PrintLine();
@@ -1152,6 +1354,11 @@ namespace equalizer_connect_universal
                 e.GetPosition(sender as Grid));
         }
 
+        /// <summary>
+        /// Set the value of all filter gains to 0.
+        /// </summary>
+        /// <param name="sender">N/A</param>
+        /// <param name="e">N/A</param>
         private void button_zero_equalizer_Tapped(object sender, TappedRoutedEventArgs e)
         {
             PrintLine();
@@ -1168,18 +1375,39 @@ namespace equalizer_connect_universal
                 MessageParser.MESSAGE_TYPE.FILTERS_GAIN), true);
         }
 
+        /// <summary>
+        /// Removes the last filter, slider, and textbox.
+        /// Adjusts the selected filter value accordingly.
+        /// </summary>
+        /// <param name="sender">N/A</param>
+        /// <param name="args">N/A</param>
         private void button_remove_filter_Tapped(object sender, TappedRoutedEventArgs args)
         {
             PrintLine();
             // add filter
             filterManager.RemoveFilter();
-            ScrollToFilter(filterManager.Filters.Count - 1);
+            if (filterManager.Filters.Count > 0)
+            {
+                SelectedSliderIndex = Math.Min(
+                    selectedSliderIndex,
+                    filterManager.Filters.Count - 1);
+                ScrollToFilter(filterManager.Filters.Count - 1);
+            }
+            else
+            {
+                SelectedSliderIndex = -1;
+            }
 
             // send message
             connection.Send(messageParser.CreateMessage(
                 MessageParser.MESSAGE_TYPE.FILTER_REMOVED), true);
         }
 
+        /// <summary>
+        /// Adds a new filter, slider, and textbox.
+        /// </summary>
+        /// <param name="sender">N/A</param>
+        /// <param name="e">N/A</param>
         private void button_add_filter_Tapped(object sender, TappedRoutedEventArgs e)
         {
             PrintLine();
@@ -1191,6 +1419,11 @@ namespace equalizer_connect_universal
                 MessageParser.MESSAGE_TYPE.FILTER_ADDED), true);
         }
 
+        /// <summary>
+        /// Passes the status of the checkbox on to the server.
+        /// </summary>
+        /// <param name="sender">N/A</param>
+        /// <param name="e">N/A</param>
         private void checkbox_apply_equalizer_Checked(object sender, RoutedEventArgs e)
         {
             PrintLine();
@@ -1204,6 +1437,11 @@ namespace equalizer_connect_universal
                 MessageParser.MESSAGE_TYPE.FILTER_APPLY), true);
         }
 
+        /// <summary>
+        /// Tells the server to go to the previous track.
+        /// </summary>
+        /// <param name="sender">N/A</param>
+        /// <param name="e">N/A</param>
         private void button_prev_Tapped(object sender, TappedRoutedEventArgs e)
         {
             PrintLine();
@@ -1212,6 +1450,11 @@ namespace equalizer_connect_universal
                 MessageParser.MESSAGE_TYPE.PREV_TRACK), true);
         }
 
+        /// <summary>
+        /// Tells the server to go to play the current track.
+        /// </summary>
+        /// <param name="sender">N/A</param>
+        /// <param name="e">N/A</param>
         private void button_play_Tapped(object sender, TappedRoutedEventArgs e)
         {
             PrintLine();
@@ -1222,6 +1465,11 @@ namespace equalizer_connect_universal
                 playpause), true);
         }
 
+        /// <summary>
+        /// Tells the server to go to pause the current track.
+        /// </summary>
+        /// <param name="sender">N/A</param>
+        /// <param name="e">N/A</param>
         private void button_pause_Tapped(object sender, TappedRoutedEventArgs e)
         {
             PrintLine();
@@ -1232,6 +1480,11 @@ namespace equalizer_connect_universal
                 playpause), true);
         }
 
+        /// <summary>
+        /// Tells the server to go to the next track.
+        /// </summary>
+        /// <param name="sender">N/A</param>
+        /// <param name="e">N/A</param>
         private void button_next_Tapped(object sender, TappedRoutedEventArgs e)
         {
             PrintLine();
@@ -1240,11 +1493,23 @@ namespace equalizer_connect_universal
                 MessageParser.MESSAGE_TYPE.NEXT_TRACK), true);
         }
 
+        /// <summary>
+        /// Sets <see cref="IsTouchActive"/> to true.
+        /// </summary>
+        /// <param name="sender">N/A</param>
+        /// <param name="e">N/A</param>
+        /// <seealso cref="MessageReceived"/>
         private void LayoutRoot_MouseEnter(object sender, object e)
         {
             IsTouchActive = true;
         }
 
+        /// <summary>
+        /// Sets <see cref="IsTouchActive"/> to false.
+        /// </summary>
+        /// <param name="sender">N/A</param>
+        /// <param name="e">N/A</param>
+        /// <seealso cref="MessageReceived"/>
         private void LayoutRoot_MouseLeave(object sender, object e)
         {
             IsTouchActive = false;

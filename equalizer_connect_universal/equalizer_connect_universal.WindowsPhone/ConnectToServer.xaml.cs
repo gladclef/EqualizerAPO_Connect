@@ -49,8 +49,10 @@ namespace equalizer_connect_universal
         /// <param name="e">N/A</param>
         private void HardwareButtons_BackPressed(object sender, Windows.Phone.UI.Input.BackPressedEventArgs e)
         {
-            if (Frame.CurrentSourcePageType == this.GetType())
+            if (Frame.CurrentSourcePageType == this.GetType() &&
+                !e.Handled)
             {
+                e.Handled = true;
                 Connection.GetInstance().Close();
                 Application.Current.Exit();
             }
