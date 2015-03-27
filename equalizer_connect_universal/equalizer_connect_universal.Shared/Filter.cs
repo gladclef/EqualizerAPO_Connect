@@ -120,6 +120,10 @@ namespace equalizer_connect_universal
             }
         }
 
+        /// <summary>
+        /// When locked, the frequency, gain, and Q values of the
+        /// filter can't be updated.
+        /// </summary>
         public bool IsLocked { get; set; }
 
         #endregion
@@ -181,10 +185,6 @@ namespace equalizer_connect_universal
             retval.Add("Q", Q);
             return retval;
         }
-
-        #endregion
-
-        #region private methods
 
         #endregion
 
