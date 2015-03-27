@@ -1098,7 +1098,7 @@ namespace equalizer_connect_universal
             Filter filter = filterManager.Filters.ElementAt(SelectedSliderIndex).Value;
             filter.Gain -= 0.1;
             connection.Send(
-                messageParser.CreateMessage(MessageParser.MESSAGE_TYPE.FILTERS_GAIN),
+                messageParser.PrepareMessage(MessageParser.MESSAGE_TYPE.FILTERS_GAIN),
                 true);
         }
 
@@ -1113,7 +1113,7 @@ namespace equalizer_connect_universal
             Filter filter = filterManager.Filters.ElementAt(SelectedSliderIndex).Value;
             filter.Gain += 0.1;
             connection.Send(
-                messageParser.CreateMessage(MessageParser.MESSAGE_TYPE.FILTERS_GAIN),
+                messageParser.PrepareMessage(MessageParser.MESSAGE_TYPE.FILTERS_GAIN),
                 true);
         }
 
@@ -1187,7 +1187,7 @@ namespace equalizer_connect_universal
 
             // send a message to the server
             connection.Send(
-                messageParser.CreateMessage(MessageParser.MESSAGE_TYPE.VOLUME_CHANGED),
+                messageParser.PrepareMessage(MessageParser.MESSAGE_TYPE.VOLUME_CHANGED),
                 false);
         }
 
@@ -1206,7 +1206,7 @@ namespace equalizer_connect_universal
 
             slider_volume.Value = GetDoubleFromText(textbox_volume.Text);
             connection.Send(
-                messageParser.CreateMessage(MessageParser.MESSAGE_TYPE.VOLUME_CHANGED),
+                messageParser.PrepareMessage(MessageParser.MESSAGE_TYPE.VOLUME_CHANGED),
                 true);
         }
 
@@ -1224,7 +1224,7 @@ namespace equalizer_connect_universal
             {
                 slider_volume.Value = GetDoubleFromText(textbox_volume.Text);
                 connection.Send(
-                    messageParser.CreateMessage(MessageParser.MESSAGE_TYPE.VOLUME_CHANGED),
+                    messageParser.PrepareMessage(MessageParser.MESSAGE_TYPE.VOLUME_CHANGED),
                     true);
             }
         }
@@ -1272,7 +1272,7 @@ namespace equalizer_connect_universal
                 // change filter gain
                 filter.Gain = slider.Value;
                 connection.Send(
-                    messageParser.CreateMessage(MessageParser.MESSAGE_TYPE.FILTERS_GAIN),
+                    messageParser.PrepareMessage(MessageParser.MESSAGE_TYPE.FILTERS_GAIN),
                     false);
             }
         }
@@ -1300,7 +1300,7 @@ namespace equalizer_connect_universal
 
             TextBoxTextChanged(textBox);
             connection.Send(
-                messageParser.CreateMessage(MessageParser.MESSAGE_TYPE.FILTERS_GAIN),
+                messageParser.PrepareMessage(MessageParser.MESSAGE_TYPE.FILTERS_GAIN),
                 true);
         }
 
@@ -1331,7 +1331,7 @@ namespace equalizer_connect_universal
             {
                 TextBoxTextChanged(textBox);
                 connection.Send(
-                    messageParser.CreateMessage(MessageParser.MESSAGE_TYPE.FILTERS_GAIN),
+                    messageParser.PrepareMessage(MessageParser.MESSAGE_TYPE.FILTERS_GAIN),
                     true);
             }
         }
@@ -1379,7 +1379,7 @@ namespace equalizer_connect_universal
             filterManager.SetNewGainValues(zeroes);
 
             // send message
-            connection.Send(messageParser.CreateMessage(
+            connection.Send(messageParser.PrepareMessage(
                 MessageParser.MESSAGE_TYPE.FILTERS_GAIN), true);
         }
 
@@ -1407,7 +1407,7 @@ namespace equalizer_connect_universal
             }
 
             // send message
-            connection.Send(messageParser.CreateMessage(
+            connection.Send(messageParser.PrepareMessage(
                 MessageParser.MESSAGE_TYPE.FILTER_REMOVED), true);
         }
 
@@ -1423,7 +1423,7 @@ namespace equalizer_connect_universal
             filterManager.AddFilter(0);
 
             // send message
-            connection.Send(messageParser.CreateMessage(
+            connection.Send(messageParser.PrepareMessage(
                 MessageParser.MESSAGE_TYPE.FILTER_ADDED), true);
         }
 
@@ -1441,7 +1441,7 @@ namespace equalizer_connect_universal
             }
 
             // send message
-            connection.Send(messageParser.CreateMessage(
+            connection.Send(messageParser.PrepareMessage(
                 MessageParser.MESSAGE_TYPE.FILTER_APPLY), true);
         }
 
@@ -1454,7 +1454,7 @@ namespace equalizer_connect_universal
         {
             PrintLine();
             // send message
-            connection.Send(messageParser.CreateMessage(
+            connection.Send(messageParser.PrepareMessage(
                 MessageParser.MESSAGE_TYPE.PREV_TRACK), true);
         }
 
@@ -1469,7 +1469,7 @@ namespace equalizer_connect_universal
             var playpause = MessageParser.MESSAGE_TYPE.PLAY;
 
             // send message
-            connection.Send(messageParser.CreateMessage(
+            connection.Send(messageParser.PrepareMessage(
                 playpause), true);
         }
 
@@ -1484,7 +1484,7 @@ namespace equalizer_connect_universal
             var playpause = MessageParser.MESSAGE_TYPE.PAUSE;
 
             // send message
-            connection.Send(messageParser.CreateMessage(
+            connection.Send(messageParser.PrepareMessage(
                 playpause), true);
         }
 
@@ -1497,7 +1497,7 @@ namespace equalizer_connect_universal
         {
             PrintLine();
             // send message
-            connection.Send(messageParser.CreateMessage(
+            connection.Send(messageParser.PrepareMessage(
                 MessageParser.MESSAGE_TYPE.NEXT_TRACK), true);
         }
 

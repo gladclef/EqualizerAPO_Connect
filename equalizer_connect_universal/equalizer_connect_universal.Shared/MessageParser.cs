@@ -6,23 +6,45 @@ using System.Threading.Tasks;
 
 namespace equalizer_connect_universal
 {
+    /// <summary>
+    /// Parses messages received from the server and
+    /// prepares messages to send to the server.
+    /// </summary>
     public class MessageParser
     {
         #region fields/properties
 
+        /// <summary>
+        /// Possible types of messages to prepare.
+        /// </summary>
         public enum MESSAGE_TYPE
         {
             TRACK_CHANGED, FILTERS_GAIN, FILTER_REMOVED,
             FILTER_ADDED, PLAY, PAUSE, VOLUME_CHANGED,
             FILTER_APPLY, NEXT_TRACK, PREV_TRACK
         };
+
+        /// <summary>
+        /// The <see cref="FilterManager"/> communicated with
+        /// in parsing/preparing messages.
+        /// </summary>
         private FilterManager filterAPI;
+
+        /// <summary>
+        /// The <see cref="EqualizerManager"/> communicated with
+        /// in parsing/preparing messages.
+        /// </summary>
         private EqualizerManager equalizer;
 
         #endregion
 
         #region public methods
 
+        /// <summary>
+        /// Create a new instance of this class.
+        /// </summary>
+        /// <param name="fm">Used in parsing/preparing messages.</param>
+        /// <param name="eq">Used in parsing/preparing messages.</param>
         public MessageParser(FilterManager fm, EqualizerManager eq)
         {
             PrintLine();
@@ -30,6 +52,11 @@ namespace equalizer_connect_universal
             equalizer = eq;
         }
 
+        /// <summary>
+        /// Parse a message from the server.
+        /// May update the filters or playback based on the message contents.
+        /// </summary>
+        /// <param name="message">The message to parse.</param>
         public void ParseMessage(string message) {
             PrintLine();
             // get the message parts
@@ -88,11 +115,15 @@ namespace equalizer_connect_universal
             }
         }
 
-        #endregion
-
-        #region private methods
-
-        public string CreateMessage(MESSAGE_TYPE type)
+        /// <summary>
+        /// Prepares a message to send to the server.
+        /// Talks to the <see cref="FilterManager"/> and/or
+        /// <see cref="EqualizerManager"/> to get the most up-to-date
+        /// message contents.
+        /// </summary>
+        /// <param name="type">The type of message to prepare.</param>
+        /// <returns>A string that represents that message.</returns>
+        public string PrepareMessage(MESSAGE_TYPE type)
         {
             PrintLine();
             StringBuilder sb = new StringBuilder();
