@@ -6,23 +6,56 @@ using System.Threading.Tasks;
 
 namespace equalizer_connect_universal
 {
+    /// <summary>
+    /// A singleton class.
+    /// Manages filters and their gain values.
+    /// </summary>
     public class FilterManager
     {
+        #region event handlers
 
-        #region events
-
+        /// <summary>
+        /// Triggered whenever the <see cref="PreAmpGain"/> is changed.
+        /// </summary>
         public EventHandler volumeChangedEvent;
+        
+        /// <summary>
+        /// Triggered whenever a <see cref="Filters"/> is added.
+        /// </summary>
         public EventHandler filterAddedEvent;
+
+        /// <summary>
+        /// Triggered whenever a <see cref="Filters"/> is removed.
+        /// </summary>
         public EventHandler filterRemovedEvent;
+
+        /// <summary>
+        /// Triggered whenever a <see cref="Filters"/> is changed.
+        /// </summary>
         public EventHandler filterChangedEvent;
+
+        /// <summary>
+        /// Triggered whenever <see cref="IsEqualizerApplied"/> is changed.
+        /// </summary>
         public EventHandler equalizerAppliedEvent;
 
         #endregion
 
         #region fields/properties
 
+        /// <summary>
+        /// The singlton instance of this class.
+        /// </summary>
         private static FilterManager instance;
+
+        /// <summary>
+        /// The preamp (aka volume) gain.
+        /// </summary>
         private double preAmpGain;
+        /// <summary>
+        /// The preamp (aka volume) gain.
+        /// When changed, triggers <see cref="volumeChangedEvent"/>.
+        /// </summary>
         public double PreAmpGain
         {
             get { return preAmpGain; }
@@ -39,7 +72,15 @@ namespace equalizer_connect_universal
                 }
             }
         }
+        
+        /// <summary>
+        /// Represents the state of the equalizer (applied or no?)
+        /// </summary>
         private bool isEqualizerApplied;
+        /// <summary>
+        /// Represents the state of the equalizer (applied or no?)
+        /// When changed, triggers <see cref="equalizerAppliedEvent"/>.
+        /// </summary>
         public bool IsEqualizerApplied
         {
             get { return isEqualizerApplied; }
@@ -52,21 +93,72 @@ namespace equalizer_connect_universal
                 }
             }
         }
+        
+        /// <summary>
+        /// Set of all filters applied to the current <see cref="Track"/>.
+        /// </summary>
         public SortedDictionary<double,Filter> Filters { get; private set; }
 
-        // optimize fired events
+        /// <summary>
+        /// Optimize fired events.
+        /// Don't fire lots of events while in the process of changing filters.
+        /// Instead, store up the changes and fire them all at once.
+        /// </summary>
+        /// <seealso cref="filtersChangedLog"/>
+        /// <seealso cref="filtersAddedLog"/>
+        /// <seealso cref="filtersRemovedLog"/>
         private bool settingNewGainValues;
+        
+        /// <summary>
+        /// Optimization.
+        /// Only trigger <see cref="filterChangedEvent"/> if true.
+        /// Used to bypass event triggers individually and instead fire
+        /// events all at once.
+        /// </summary>
         private bool passFilterChangedEvents;
+        
+        /// <summary>
+        /// List of filters that have been changed since
+        /// the last event was triggered.
+        /// </summary>
         private SortedSet<int> filtersChangedLog;
+
+        /// <summary>
+        /// Optimization.
+        /// Only trigger <see cref="filterAddedEvent"/> if true.
+        /// Used to bypass event triggers individually and instead fire
+        /// events all at once.
+        /// </summary>
         private bool passFiltersAddedEvent;
+
+        /// <summary>
+        /// List of filters that have been added since
+        /// the last event was triggered.
+        /// </summary>
         private SortedSet<int> filtersAddedLog;
+
+        /// <summary>
+        /// Optimization.
+        /// Only trigger <see cref="filterRemovedEvent"/> if true.
+        /// Used to bypass event triggers individually and instead fire
+        /// events all at once.
+        /// </summary>
         private bool passFiltersRemovedEvent;
+
+        /// <summary>
+        /// List of filters that have been removed since
+        /// the last event was triggered.
+        /// </summary>
         private SortedSet<int> filtersRemovedLog;
 
         #endregion
 
         #region public methods
 
+        /// <summary>
+        /// Create a new instance of this class, including
+        /// initializing many of the fields.
+        /// </summary>
         public FilterManager()
         {
             PrintLine();
@@ -80,6 +172,10 @@ namespace equalizer_connect_universal
             filtersRemovedLog = new SortedSet<int>();
         }
 
+        /// <summary>
+        /// Gets/creates the singleton instance of this class.
+        /// </summary>
+        /// <returns></returns>
         public static FilterManager GetInstance() {
             PrintLine();
             if (FilterManager.instance == null)
@@ -89,17 +185,27 @@ namespace equalizer_connect_universal
             return FilterManager.instance;
         }
 
+        /// <summary>
+        /// Calls <see cref="Close"/>
+        /// </summary>
         ~FilterManager() {
             PrintLine();
             Close();
         }
 
+        /// <summary>
+        /// Calls <see cref="Clear"/> and
+        /// removes the in-class private reference to the singleton instance.
+        /// </summary>
         public void Close() {
             PrintLine();
             Clear();
             instance = null;
         }
 
+        /// <summary>
+        /// Removes all filters, including triggering the filterRemovedEvent.
+        /// </summary>
         public void Clear()
         {
             PrintLine();
@@ -121,6 +227,11 @@ namespace equalizer_connect_universal
             }
         }
 
+        /// <summary>
+        /// Adds, removes, and updates all filters with the given gain values.
+        /// Then mass fires the events for the added, removed, or changed filters.
+        /// </summary>
+        /// <param name="newFilterGains">A set of gain values, one for each filter.</param>
         public void SetNewGainValues(string[] newFilterGains)
         {
             PrintLine();
@@ -176,6 +287,10 @@ namespace equalizer_connect_universal
             MassFireFiltersRemoved();
         }
 
+        /// <summary>
+        /// Removes the last filter.
+        /// Triggers <see cref="filterRemovedEvent"/>
+        /// </summary>
         public void RemoveFilter()
         {
             PrintLine();
@@ -195,6 +310,12 @@ namespace equalizer_connect_universal
             }
         }
 
+        /// <summary>
+        /// Adds a new filter with gain 0.
+        /// Adjusts the frequency and Q values of the other filters.
+        /// Triggers <see cref="filterAddedEvent"/>.
+        /// </summary>
+        /// <param name="gain"></param>
         public void AddFilter(double gain)
         {
             PrintLine();
@@ -224,6 +345,11 @@ namespace equalizer_connect_universal
             }
         }
 
+        /// <summary>
+        /// Find the filter and get its index.
+        /// </summary>
+        /// <param name="filter">The filter to search for.</param>
+        /// <returns>The filter's index, -1 on failure.</returns>
         public int GetFilterIndex(Filter filter)
         {
             PrintLine();
@@ -250,6 +376,10 @@ namespace equalizer_connect_universal
 
         #region private methods
 
+        /// <summary>
+        /// Updates all filters with new frequency and Q values based on
+        /// the number of filters that there are, to evenly space the filters.
+        /// </summary>
         private void UpdateFilters()
         {
             PrintLine();
@@ -270,6 +400,11 @@ namespace equalizer_connect_universal
             MassFireFiltersChanged();
         }
 
+        /// <summary>
+        /// Triggers <see cref="filterAddedEvent"/> with the
+        /// indices of all filters in the <see cref="filtersChangedLog"/>.
+        /// Clears the <see cref="filtersChangedLog"/>.
+        /// </summary>
         private void MassFireFiltersChanged()
         {
             PrintLine();
@@ -287,6 +422,11 @@ namespace equalizer_connect_universal
             filtersChangedLog.Clear();
         }
 
+        /// <summary>
+        /// Triggers <see cref="filterAddedEvent"/> with the
+        /// indices of all filters in the <see cref="filtersAddedLog"/>.
+        /// Clears the <see cref="filtersAddedLog"/>.
+        /// </summary>
         private void MassFireFiltersAdded()
         {
             PrintLine();
@@ -304,6 +444,11 @@ namespace equalizer_connect_universal
             filtersAddedLog.Clear();
         }
 
+        /// <summary>
+        /// Triggers <see cref="filterRemovedEvent"/> with the
+        /// indices of all filters in the <see cref="filtersRemovedLog"/>.
+        /// Clears the <see cref="filtersRemovedLog"/>.
+        /// </summary>
         private void MassFireFiltersRemoved()
         {
             PrintLine();
@@ -321,6 +466,12 @@ namespace equalizer_connect_universal
             filtersRemovedLog.Clear();
         }
 
+        /// <summary>
+        /// Callback for <see cref="Filter.FilterChanged"/>.
+        /// Triggers <see cref="filterChangedEvent"/> whenever a filter is changed.
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="args"></param>
         private void FilterChanged(object sender, EventArgs args)
         {
             PrintLine();
