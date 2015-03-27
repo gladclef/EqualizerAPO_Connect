@@ -7,21 +7,40 @@ using Windows.Storage.Streams;
 
 namespace equalizer_connect_universal
 {
+    /// <summary>
+    /// Used to set a timeout on async tasks.
+    /// </summary>
     class AwaitTimer
     {
+        #region fields
+
+        /// <summary>
+        /// The number of milliseconds before the timer pops.
+        /// </summary>
         public int timeoutMillisecs;
+        
+        /// <summary>
+        /// How often to check if the task has completed.
+        /// </summary>
         public int interval;
+        
+        /// <summary>
+        /// Used in place of Thread.Sleep().
+        /// </summary>
         private ManualResetEvent timer = new ManualResetEvent(false);
 
+        #endregion
+
+        #region public methods
+
+        /// <summary>
+        /// Create a new instance with the given default timeout and interval.
+        /// </summary>
+        /// <param name="millisecs">The timeout value</param>
+        /// <param name="interval">The interval to check on</param>
         public AwaitTimer(int millisecs, int interval = 30)
         {
             init(millisecs, interval);
-        }
-
-        private void init(int millisecs, int interval)
-        {
-            this.timeoutMillisecs = millisecs;
-            this.interval = interval;
         }
 
         /// <summary>
@@ -52,5 +71,22 @@ namespace equalizer_connect_universal
 
             return (task.Status == AsyncStatus.Completed);
         }
+
+        #endregion
+
+        #region private methods
+
+        /// <summary>
+        /// Initializes values for a new instance of this class.
+        /// </summary>
+        /// <param name="millisecs">The timeout</param>
+        /// <param name="interval">The interval to check on</param>
+        private void init(int millisecs, int interval)
+        {
+            this.timeoutMillisecs = millisecs;
+            this.interval = interval;
+        }
+
+        #endregion
     }
 }

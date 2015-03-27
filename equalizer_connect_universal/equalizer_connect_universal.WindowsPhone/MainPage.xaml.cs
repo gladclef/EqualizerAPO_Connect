@@ -18,7 +18,7 @@ using Windows.UI.Xaml.Navigation;
 namespace equalizer_connect_universal
 {
     /// <summary>
-    /// An empty page that can be used on its own or navigated to within a Frame.
+    /// Not used.
     /// </summary>
     public sealed partial class MainPage : Page
     {

@@ -5,6 +5,11 @@ using Windows.UI.Xaml.Navigation;
 
 namespace equalizer_connect_universal
 {
+    /// <summary>
+    /// The front page of the application.
+    /// A simple page used to input the IPv4 address of the
+    /// server and attempt to connect to it.
+    /// </summary>
     public partial class ConnectToServer
     {
         #region constants/fields

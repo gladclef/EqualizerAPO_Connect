@@ -14,6 +14,14 @@ using Windows.UI.Xaml.Shapes;
 
 namespace equalizer_connect_universal
 {
+    /// <summary>
+    /// The primarily useful page of the application. This is the page from
+    /// which filters are created, destroyed, and edited. The volume is also
+    /// changed from the this page and the song playback.
+    /// 
+    /// There are event handlers here from most of the application's other
+    /// classes and event handlers from the GUI objects.
+    /// </summary>
     public partial class Equalizer
     {
         #region constants
