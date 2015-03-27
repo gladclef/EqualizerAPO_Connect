@@ -4,12 +4,28 @@ using System.Text;
 
 namespace equalizer_connect_universal
 {
+    /// <summary>
+    /// Manages the state of the equalizer
+    /// (current <see cref="Track"/> and playback status).
+    /// </summary>
     public class EqualizerManager
     {
         #region constants
 
-        public const double GAIN_ACCURACY = 0.1;
+        /// <summary>
+        /// How much does the gain of the volume/filter have to change
+        /// for the change to be registered.
+        /// </summary>
+        public const double GAIN_ACCURACY = 0.09;
+
+        /// <summary>
+        /// Maximum preamp (aka volume) gain. Positive or negative.
+        /// </summary>
         public const double MAX_PREAMP_GAIN = 30;
+
+        /// <summary>
+        /// Maximum gain on the filters.
+        /// </summary>
         public const double GAIN_MAX = 15;
 
         #endregion
@@ -36,6 +52,7 @@ namespace equalizer_connect_universal
                 }
             }
         }
+        
         /// <summary>
         /// Reference to the track currently being played.
         /// </summary>
@@ -59,13 +76,23 @@ namespace equalizer_connect_universal
 
         #region event handlers
 
+        /// <summary>
+        /// Triggers whenever the playback status is updated.
+        /// </summary>
         public EventHandler PlaybackUpdatedEvent;
+        
+        /// <summary>
+        /// Triggers whenever the track is changed/updated.
+        /// </summary>
         public EventHandler TrackChangedEvent;
 
         #endregion
 
         #region public methods
 
+        /// <summary>
+        /// Create a new instance of this class.
+        /// </summary>
         public EqualizerManager()
         {
             currentTrack = new Track();
@@ -76,6 +103,12 @@ namespace equalizer_connect_universal
 
         #region private methods
 
+        /// <summary>
+        /// Callback for <see cref="Track.ChangedEvent"/>.
+        /// Triggers <see cref="TrackEventArgs"/>.
+        /// </summary>
+        /// <param name="sender">N/A</param>
+        /// <param name="args">N/A</param>
         private void TrackChanged(object sender, object args)
         {
             if (TrackChangedEvent != null)
